@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Betaalautomaat — P1 Parking Prototype</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ═══ ADMIN PANEL ═══════════════════════════════════════════════ -->
+  <aside class="layout__panel">
+
+    <header class="panel__header">⚙ Admin Panel</header>
+
+    <!-- Status apparaat -->
+    <section class="panel__section">
+      <h2 class="panel__section-title">Status apparaat</h2>
+
+      <div class="panel__row">
+        <label class="panel__label" for="cfg-kaart-vast">
+          Kaartmondje geblokkeerd
+          <span class="panel__label-sub">Ticket vastzit → melding bij start</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-kaart-vast" onchange="showIdle()">
+          <span class="toggle__track"></span>
+        </label>
+      </div>
+
+      <div class="panel__row">
+        <label class="panel__label" for="cfg-munt-defect">
+          Muntenverwerker defect
+          <span class="panel__label-sub">Melding bij contant kiezen</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-munt-defect" onchange="showIdle()">
+          <span class="toggle__track"></span>
+        </label>
+      </div>
+
+      <div class="panel__row">
+        <label class="panel__label" for="cfg-brief-defect">
+          Briefgeld gleuf geblokkeerd
+          <span class="panel__label-sub">Alleen munten mogelijk</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-brief-defect" onchange="showIdle()">
+          <span class="toggle__track"></span>
+        </label>
+      </div>
+
+      <div class="panel__row">
+        <label class="panel__label" for="cfg-gepast">
+          Gepast betalen vereist
+          <span class="panel__label-sub">Geen wisselgeld beschikbaar</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-gepast" onchange="showIdle()">
+          <span class="toggle__track"></span>
+        </label>
+      </div>
+
+      <div class="panel__row">
+        <label class="panel__label" for="cfg-barcode-defect">
+          Barcode scanner defect
+          <span class="panel__label-sub">Alleen kaartmondje beschikbaar</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-barcode-defect" onchange="showIdle()">
+          <span class="toggle__track"></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Parkeerticket -->
+    <section class="panel__section">
+      <h2 class="panel__section-title">Parkeerticket</h2>
+
+      <div class="panel__row">
+        <label class="panel__label" for="cfg-ticket-fout">
+          Ticket beschadigd / kwijt
+          <span class="panel__label-sub">Foutmelding bij invoer → kenteken route</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-ticket-fout" onchange="showIdle()">
+          <span class="toggle__track"></span>
+        </label>
+      </div>
+
+      <div>
+        <label class="panel__label" for="cfg-duur">Parkeerduur & bedrag</label>
+        <select class="panel__select" id="cfg-duur" onchange="showIdle()">
+          <option value="30m|1.00">30 min — € 1,00</option>
+          <option value="1u|2.00">1 uur — € 2,00</option>
+          <option value="2u 15m|3.50" selected>2u 15 min — € 3,50</option>
+          <option value="4u|6.00">4 uur — € 6,00</option>
+          <option value="8u|12.00">8 uur — € 12,00</option>
+          <option value="1 dag|22.00">1 dag — € 22,00</option>
+        </select>
+      </div>
+
+      <div style="margin-top:8px;">
+        <label class="panel__label" for="cfg-garage">Garage locatie</label>
+        <select class="panel__select" id="cfg-garage" onchange="showIdle()">
+          <option value="P8 Flevo-garage" selected>P8 Flevo-garage</option>
+          <option value="P6 Centrum">P6 Centrum</option>
+          <option value="P12 Station">P12 Station</option>
+          <option value="P3 Ziekenhuis">P3 Ziekenhuis</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Kenteken registraties -->
+    <section class="panel__section">
+      <h2 class="panel__section-title">Kenteken registraties</h2>
+
+      <div class="kenteken-list" id="kenteken-list"></div>
+
+      <div class="kenteken-add">
+        <input
+          class="kenteken-add__input"
+          type="text"
+          id="kenteken-new-plate"
+          placeholder="AB-123-C"
+          maxlength="9"
+          oninput="this.value = this.value.toUpperCase()"
+        >
+        <input
+          class="kenteken-add__input kenteken-add__input--price"
+          type="text"
+          id="kenteken-new-price"
+          placeholder="€ bedrag"
+        >
+        <button class="kenteken-add__btn" onclick="addKenteken()">+</button>
+      </div>
+    </section>
+
+    <!-- Intercom -->
+    <section class="panel__section">
+      <h2 class="panel__section-title">Intercom / Meldkamer</h2>
+      <label class="panel__label" for="cfg-wachtrij">Wachtrij (personen voor bezoeker)</label>
+      <select class="panel__select" id="cfg-wachtrij">
+        <option value="0">Geen wachtrij</option>
+        <option value="1" selected>1 persoon voor u</option>
+        <option value="2">2 personen voor u</option>
+        <option value="3">3 personen voor u</option>
+      </select>
+    </section>
+
+    <div class="panel__footer">
+      <button class="panel__reset-btn" onclick="showIdle()">↺ Automaat resetten</button>
+    </div>
+
+  </aside>
+
+  <!-- ═══ STAGE ══════════════════════════════════════════════════════ -->
+  <main class="layout__stage">
+
+    <!-- Machine -->
+    <div class="machine">
+      <div class="machine__logo">P1 PARKING</div>
+
+      <!-- Screen -->
+      <div class="screen" id="screen">
+        <div class="screen__content" id="screen-content"></div>
+        <div class="screen__progress" id="progress"></div>
+      </div>
+
+      <!-- Hardware -->
+      <div class="hardware">
+
+        <!-- Kaartmondje + Barcode scanner -->
+        <div class="hardware__row">
+          <div class="slot slot--wide" id="slot-kaart">🎫 Kaartmondje</div>
+          <div class="slot slot--narrow" id="slot-barcode">▦ Barcode scanner</div>
+        </div>
+
+        <!-- Briefgeld gleuf -->
+        <div class="slot" id="slot-brief">💵 Briefgeld gleuf</div>
+
+        <!-- Pin + kleine slots + intercom -->
+        <div class="hardware__row">
+
+          <div class="slot slot--tall" id="slot-pin">
+            <div id="pin-icon" style="font-size:18px;color:#AAA;">⬡</div>
+            <div class="slot__pin-label" id="pin-label" style="color:#AAA;">Pinpas lezer</div>
+          </div>
+
+          <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
+            <div class="slot slot--slim" id="slot-munten">🪙 Munten invoer</div>
+            <div class="slot slot--slim" id="slot-wissel">🪙 Wisselgeld uitvoer</div>
+            <div class="slot slot--slim" id="slot-kwitantie">📄 Kwitantie</div>
+          </div>
+
+          <div class="slot slot--tall slot--intercom" id="slot-intercom" onclick="showIntercom()">
+            <span style="font-size:16px;">📞</span>
+            <span style="font-size:7px;color:#AAA;margin-top:3px;">Intercom</span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Nav bar -->
+    <nav class="nav-bar">
+      <button class="nav-bar__btn" id="btn-back" onclick="handleBack()" disabled>← Terug</button>
+      <span class="nav-bar__label" id="nav-label">—</span>
+      <button class="nav-bar__btn nav-bar__btn--next" id="btn-next" onclick="handleNext()" disabled>Volgende →</button>
+    </nav>
+
+  </main>
+
+</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
