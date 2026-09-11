@@ -2,429 +2,352 @@
 //  STATE
 // ─────────────────────────────────────────────
 const state = {
-  step: 'idle',
-  cashIn: 0,
-  cashTarget: 0,
-  kentekenInput: '',
-  foundPlate: null,
+    step: 'idle',   // idle | betaalkeuze | pin | pincode | contant | kenteken | kt-betaal | klaar
+    cashIn: 0,
+    cashTarget: 0,
+    kentekenInput: '',
+    foundPlate: null,
+    pincode: '',
 };
 
 // ─────────────────────────────────────────────
-//  KENTEKEN DATABASE
+//  KENTEKEN DB
 // ─────────────────────────────────────────────
 let kentekenDB = [
-  { plate: 'AB-123-C', euro: 3.50, duur: '2u 15m', tijd: '13:22' },
-  { plate: 'XX-555-Y', euro: 6.00, duur: '4u',     tijd: '10:05' },
+    { plate: 'AB-123-C', euro: 3.50, duur: '2u 15m', tijd: '13:22' },
+    { plate: 'XX-555-Y', euro: 6.00, duur: '4u',     tijd: '10:05' },
 ];
 
 function lookupPlate(input) {
-  const clean = (s) => (s || '').replace(/-/g, '').toUpperCase();
-  return kentekenDB.find(k => clean(k.plate) === clean(input));
+    const clean = s => (s || '').replace(/-/g, '').toUpperCase();
+    return kentekenDB.find(k => clean(k.plate) === clean(input));
 }
 
 // ─────────────────────────────────────────────
-//  ADMIN CONFIG
+//  CONFIG
 // ─────────────────────────────────────────────
 function getConfig() {
-  const [duur, euroStr] = document.getElementById('cfg-duur').value.split('|');
-  const euro = parseFloat(euroStr);
-  return {
-    kaartVast:    document.getElementById('cfg-kaart-vast').checked,
-    muntDefect:   document.getElementById('cfg-munt-defect').checked,
-    briefDefect:  document.getElementById('cfg-brief-defect').checked,
-    barcodeDefect:document.getElementById('cfg-barcode-defect').checked,
-    gepast:       document.getElementById('cfg-gepast').checked,
-    ticketFout:   document.getElementById('cfg-ticket-fout').checked,
-    duur,
-    euro,
-    euroStr: '€ ' + euro.toFixed(2).replace('.', ','),
-    garage:  document.getElementById('cfg-garage').value,
-    wachtrij:parseInt(document.getElementById('cfg-wachtrij').value),
-  };
+    const [duur, euroStr] = document.getElementById('cfg-duur').value.split('|');
+    const euro = parseFloat(euroStr);
+    return {
+        kaartVast:    document.getElementById('cfg-kaart-vast').checked,
+        muntDefect:   document.getElementById('cfg-munt-defect').checked,
+        briefDefect:  document.getElementById('cfg-brief-defect').checked,
+        barcodeDefect:document.getElementById('cfg-barcode-defect').checked,
+        gepast:       document.getElementById('cfg-gepast').checked,
+        ticketFout:   document.getElementById('cfg-ticket-fout').checked,
+        duur, euro,
+        euroStr: '€ ' + euro.toFixed(2).replace('.', ','),
+        garage:  document.getElementById('cfg-garage').value,
+        wachtrij:parseInt(document.getElementById('cfg-wachtrij').value),
+    };
 }
 
 // ─────────────────────────────────────────────
 //  KENTEKEN LIST UI
 // ─────────────────────────────────────────────
 function renderKentekenList() {
-  const list = document.getElementById('kenteken-list');
-  list.innerHTML = kentekenDB.map((k, i) => `
+    document.getElementById('kenteken-list').innerHTML = kentekenDB.map((k, i) => `
     <div class="kenteken-item">
       <span class="kenteken-item__plate">${k.plate}</span>
       <span class="kenteken-item__price">€ ${k.euro.toFixed(2).replace('.', ',')}</span>
       <button class="kenteken-item__remove" onclick="removeKenteken(${i})">✕</button>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
 function addKenteken() {
-  const plateInput = document.getElementById('kenteken-new-plate');
-  const priceInput = document.getElementById('kenteken-new-price');
-  const plate = plateInput.value.trim().toUpperCase();
-  const euro  = parseFloat(priceInput.value.replace(',', '.').replace('€', '').trim());
-
-  if (!plate || isNaN(euro)) return;
-
-  kentekenDB.push({ plate, euro, duur: getConfig().duur, tijd: 'Nu' });
-  plateInput.value = '';
-  priceInput.value = '';
-  renderKentekenList();
+    const p = document.getElementById('kenteken-new-plate').value.trim().toUpperCase();
+    const e = parseFloat(document.getElementById('kenteken-new-price').value.replace(',', '.').replace('€', '').trim());
+    if (!p || isNaN(e)) return;
+    kentekenDB.push({ plate: p, euro: e, duur: getConfig().duur, tijd: 'Nu' });
+    document.getElementById('kenteken-new-plate').value = '';
+    document.getElementById('kenteken-new-price').value = '';
+    renderKentekenList();
 }
 
-function removeKenteken(index) {
-  kentekenDB.splice(index, 1);
-  renderKentekenList();
+function removeKenteken(i) {
+    kentekenDB.splice(i, 1);
+    renderKentekenList();
 }
 
 // ─────────────────────────────────────────────
-//  HARDWARE SLOT HELPERS
+//  GLOW SYSTEM
+//  Elke hardware-element heeft een glow-* rect in de SVG
+//  States: '' | 'active' (wit pulsend) | 'blink' (rood knipperend) | 'success' (groen) | 'error' (rood)
 // ─────────────────────────────────────────────
-// SVG glow IDs map
-const GLOW_MAP = {
-  'slot-kaart':    'glow-kaart',
-  'slot-barcode':  'glow-barcode',
-  'slot-brief':    'glow-brief',
-  'slot-munten':   'glow-munten',
-  'slot-wissel':   'glow-wissel',
-  'slot-kwitantie':'glow-kvt',
-  'slot-intercom': 'glow-intercom',
+const GLOW_IDS = [
+    'glow-ticket',        // ticket bak (in/uit, links)
+    'glow-barcode',       // barcode scanner (rood, links)
+    'glow-wissel',        // wisselgeld returnbak (zwart, links)
+    'glow-pinpas',        // pinpas gleuf (rechts, onder pinpad)
+    'glow-munten',        // munten verticaal (zilver, rechts)
+    'glow-kwitantie',     // kwitantie gleuf (horizontaal, rechts)
+    'glow-brief',         // briefgeld gleuf (rechtsonder)
+    'glow-intercom',      // intercom
+];
+
+const GLOW_COLORS = {
+    active:  { stroke: 'rgba(255,255,255,0.9)', fill: 'rgba(255,255,255,0.1)', anim: 'hw-pulse 1.2s ease-in-out infinite alternate' },
+    blink:   { stroke: '#CC1624', fill: 'rgba(204,22,36,0.15)',   anim: 'hw-blink 0.7s step-end infinite' },
+    success: { stroke: '#2E7D32', fill: 'rgba(46,125,50,0.15)',   anim: '' },
+    error:   { stroke: '#CC1624', fill: 'rgba(204,22,36,0.1)',    anim: '' },
+    '':      { stroke: 'transparent', fill: 'transparent',        anim: '' },
 };
 
-const STATE_COLORS = {
-  active:  { stroke: '#FFFFFF', fill: 'rgba(255,255,255,0.08)', anim: 'hw-pulse' },
-  blink:   { stroke: '#CC1624', fill: 'rgba(204,22,36,0.15)',   anim: 'hw-blink' },
-  success: { stroke: '#2E7D32', fill: 'rgba(46,125,50,0.15)',   anim: '' },
-  error:   { stroke: '#CC1624', fill: 'rgba(204,22,36,0.1)',    anim: '' },
-  '':      { stroke: 'transparent', fill: 'transparent',        anim: '' },
-};
+function setGlow(glowId, state) {
+    const el = document.getElementById(glowId);
+    if (!el) return;
+    const s = GLOW_COLORS[state] || GLOW_COLORS[''];
+    el.setAttribute('stroke', s.stroke);
+    el.setAttribute('fill', s.fill);
+    el.style.animation = s.anim;
+}
 
-function setSlot(id, state, label) {
-  const glowId = GLOW_MAP[id];
-  if (!glowId) return;
-  const el = document.getElementById(glowId);
-  if (!el) return;
-
-  const s = STATE_COLORS[state] || STATE_COLORS[''];
-  el.setAttribute('stroke', s.stroke);
-  el.setAttribute('fill', s.fill);
-
-  // Remove old animation class
-  el.style.animation = '';
-  if (s.anim === 'hw-pulse') el.style.animation = 'hw-pulse 1.2s ease-in-out infinite alternate';
-  if (s.anim === 'hw-blink') el.style.animation = 'hw-blink 0.7s step-end infinite';
-
-  // LED on kaartmondje
-  if (id === 'slot-kaart') {
+function clearAllGlows() {
+    GLOW_IDS.forEach(id => setGlow(id, ''));
+    // Reset kaart LED
     const led = document.getElementById('kaart-led');
-    if (led) {
-      const ledColors = { active: '#4488FF', blink: '#CC1624', success: '#2E7D32', error: '#CC1624', '': '#333' };
-      led.setAttribute('fill', ledColors[state] || '#333');
-      if (state === 'blink') led.style.animation = 'hw-blink 0.7s step-end infinite';
-      else led.style.animation = '';
-    }
-    // Ticket LED at bottom slot
-    const ledL = document.getElementById('ticket-led-l');
-    const ledR = document.getElementById('ticket-led-r');
-    if (ledL && ledR) {
-      const c = ledColors[state] || '#333';
-      ledL.setAttribute('fill', c);
-      ledR.setAttribute('fill', c);
-    }
-    // Glow on ticket slot too
-    const gt = document.getElementById('glow-ticket');
-    if (gt) {
-      gt.setAttribute('stroke', s.stroke);
-      gt.setAttribute('fill', s.fill);
-      gt.style.animation = el.style.animation;
-    }
-  }
-
-  // Pin icon animation
-  if (id === 'slot-pin') {
-    const icon = document.getElementById('pin-icon-svg');
-    if (icon) {
-      icon.setAttribute('fill', state === 'active' ? '#FFFFFF' : '#333');
-      icon.style.animation = state === 'active' ? 'hw-pulse 1s ease-in-out infinite alternate' : '';
-    }
-  }
+    if (led) led.setAttribute('fill', '#333');
 }
 
-function resetAllSlots() {
-  setSlot('slot-kaart',    '', '🎫 Kaartmondje');
-  setSlot('slot-barcode',  '', '▦ Barcode scanner');
-  setSlot('slot-brief',    '', '💵 Briefgeld gleuf');
-  setSlot('slot-munten',   '', '🪙 Munten invoer');
-  setSlot('slot-wissel',   '', '🪙 Wisselgeld uitvoer');
-  setSlot('slot-kwitantie','', '📄 Kwitantie');
-  setSlot('slot-intercom', '', '📞\n\nIntercom');
-  setPinSlot(false);
-}
-
-function setPinSlot(active) {
-  setSlot('slot-pin', active ? 'active' : '', '');
-  const icon = document.getElementById('pin-icon-svg');
-  if (icon) {
-    icon.setAttribute('fill', active ? '#FFFFFF' : '#333');
-    icon.setAttribute('font-size', active ? '20' : '16');
-    icon.style.animation = active ? 'hw-pulse 1s ease-in-out infinite alternate' : '';
-  }
+function setKaartLed(color) {
+    const led = document.getElementById('kaart-led');
+    if (led) led.setAttribute('fill', color);
+    const pinled = document.getElementById('pin-led');
+    if (pinled && color === '#2E7D32') pinled.setAttribute('fill', color);
+    if (pinled && color === '#333') pinled.setAttribute('fill', '#333');
 }
 
 // ─────────────────────────────────────────────
-//  SCREEN HELPERS
+//  SCREEN HELPER
 // ─────────────────────────────────────────────
 function setScreen({ modifier = '', progress = 0, badge = null, badgeModifier = '', html = '' }) {
-  const screen = document.getElementById('screen');
-
-  // Reset modifier classes
-  screen.className = 'screen' + (modifier ? ` screen--${modifier}` : '');
-
-  // Badge
-  const existingBadge = screen.querySelector('.screen__badge');
-  if (existingBadge) existingBadge.remove();
-
-  if (badge) {
-    const el = document.createElement('div');
-    el.className = 'screen__badge' + (badgeModifier ? ` screen__badge--${badgeModifier}` : '');
-    el.textContent = badge;
-    screen.appendChild(el);
-  }
-
-  document.getElementById('progress').style.width = progress + '%';
-  document.getElementById('screen-content').innerHTML = html;
+    const screen = document.getElementById('screen');
+    screen.className = 'screen' + (modifier ? ` screen--${modifier}` : '');
+    const existing = screen.querySelector('.screen__badge');
+    if (existing) existing.remove();
+    if (badge) {
+        const b = document.createElement('div');
+        b.className = 'screen__badge' + (badgeModifier ? ` screen__badge--${badgeModifier}` : '');
+        b.textContent = badge;
+        screen.appendChild(b);
+    }
+    document.getElementById('progress').style.width = progress + '%';
+    document.getElementById('screen-content').innerHTML = html;
 }
 
 function setNavBar({ back = false, next = false, label = '—' }) {
-  document.getElementById('btn-back').disabled = !back;
-  document.getElementById('btn-next').disabled = !next;
-  document.getElementById('nav-label').innerHTML = label;
+    document.getElementById('btn-back').disabled = !back;
+    document.getElementById('btn-next').disabled = !next;
+    document.getElementById('nav-label').innerHTML = label;
 }
 
-// ─────────────────────────────────────────────
-//  SCREENS
-// ─────────────────────────────────────────────
 function setZoom(on) {
-  const wrap = document.getElementById('machine-wrap');
-  if (wrap) wrap.classList.toggle('is-zoomed', on);
+    const wrap = document.getElementById('machine-wrap');
+    if (wrap) wrap.classList.toggle('is-zoomed', on);
 }
 
-function showIdle() {
-  state.step = 'idle';
-  state.cashIn = 0;
-  state.kentekenInput = '';
-  resetAllSlots();
-  setZoom(false);
-
-  const cfg = getConfig();
-
-  setScreen({
-    html: `
-      <p style="font-size:28px;opacity:.1;font-weight:900;color:#333;">P1</p>
-      <p class="screen__title">Welkom bij P1 Parking</p>
-      <p class="screen__subtitle">Houd uw parkeerticket bij de hand</p>
-      <button class="btn btn--primary" onclick="showTicketKeuze()">Tik om te beginnen</button>
-      <button class="btn btn--secondary" style="font-size:10px;" onclick="showKentekenInput()">🎫 Ticket kwijt of beschadigd?</button>
-    `,
-  });
-  setNavBar({ label: 'Welkomscherm' });
-}
-
-// Hardware click handler called from SVG onclick
+// ─────────────────────────────────────────────
+//  HARDWARE CLICK — CONTEXT AWARE
+// ─────────────────────────────────────────────
 function onHwClick(hw) {
-  if (state.step === 'idle') { showTicketKeuze(); return; }
-  if (hw === 'kaart')   showKaartmondjeInvoer();
-  if (hw === 'barcode') showBarcodeInvoer();
+
+    switch (state.step) {
+
+        case 'idle':
+            // Alleen ticket gleuf en barcode scanner starten de flow
+            if (hw === 'ticket')      { setZoom(true); insertTicket();    }
+            if (hw === 'barcode')     { setZoom(true); scanBarcode();     }
+            break;
+
+        case 'betaalkeuze':
+            // Geen hardware interactie in dit scherm
+            break;
+
+        case 'pin':
+            // Pinpas gleuf of contactloze lezer betaalt
+            if (hw === 'pinpas' || hw === 'contactloos') betaalPin();
+            break;
+
+        case 'contant':
+            // Geen directe hardware click — knoppen op scherm
+            break;
+
+        case 'klaar':
+            // Ticket gleuf links = ticket ophalen
+            if (hw === 'ticket') haalTicketOp();
+            break;
+
+        case 'kenteken':
+        case 'kt-betaal':
+            if (hw === 'pinpas' || hw === 'contactloos') betaalPin();
+            break;
+    }
 }
 
-// ── Ticket keuze: kaartmondje of barcode scanner ──────────────────────────
-function showTicketKeuze() {
-  state.step = 'ticket';
-  resetAllSlots();
-  setZoom(true);
-  const cfg = getConfig();
+// ─────────────────────────────────────────────
+//  SCREEN: IDLE
+// ─────────────────────────────────────────────
+function showIdle() {
+    state.step = 'idle';
+    state.cashIn = 0;
+    state.cashTarget = 0;
+    state.kentekenInput = '';
+    state.foundPlate = null;
+    if (window._ticketTimer) clearTimeout(window._ticketTimer);
+    clearAllGlows();
+    setZoom(false);
 
-  if (cfg.ticketFout) {
-    setSlot('slot-kaart',   'error', '✕ Ticket niet leesbaar');
-    setSlot('slot-barcode', cfg.barcodeDefect ? 'error' : 'blink', cfg.barcodeDefect ? '▦ Defect' : '▦ ⚠ Niet leesbaar');
+    // Reset pinpad scherm naar idle state
+    showPinpadDots(false);
+    // Op idle: kaartmondje pulseert zacht
+    setGlow('glow-ticket', 'active');
+    setGlow('glow-barcode', 'active');
+    setKaartLed('#4488FF');
+
     setScreen({
-      modifier: 'error',
-      badge: 'Fout',
-      badgeModifier: 'error',
-      html: `
-        <span class="icon--shake" style="font-size:28px;">⚠️</span>
-        <p class="screen__title screen__title--error">Ticket kan niet<br>worden gelezen</p>
-        <p class="screen__subtitle">Het ticket is mogelijk beschadigd,<br>verkreukeld of niet bij de hand.</p>
+        modifier: 'dark',
+        html: `
+      <p style="font-size:20px;opacity:.4;font-weight:900;color:#4488FF;letter-spacing:2px;">P1</p>
+      <p class="screen__title" style="color:white;">Welkom bij P1 Parking</p>
+      <div class="screen__divider" style="background:#333;"></div>
+      <button class="btn btn--primary" onclick="setZoom(true); insertTicket()">🎫 Ticket invoeren via gleuf</button>
+      <button class="btn btn--primary" style="background:#333;" onclick="setZoom(true); scanBarcode()">▦ Ticket scannen via barcode</button>
+      <button class="btn btn--secondary" style="font-size:10px;border-color:#555;color:#AAA;" onclick="setZoom(true); showKentekenInput()">Ticket kwijt of beschadigd?</button>
+    `,
+    });
+    setNavBar({ label: 'Welkomscherm' });
+}
+
+// ─────────────────────────────────────────────
+//  TICKET INVOER (gleuf links)
+// ─────────────────────────────────────────────
+function insertTicket() {
+    const cfg = getConfig();
+    clearAllGlows();
+
+    // Kaartje vastzit — waarschuwing, niet blokkeren
+    if (cfg.kaartVast) {
+        setGlow('glow-ticket', 'blink');
+        setKaartLed('#CC1624');
+        setScreen({
+            modifier: 'warning',
+            badge: 'Let op',
+            badgeModifier: 'warning',
+            html: `
+        <span style="font-size:24px;" class="icon--shake">⚠️</span>
+        <p class="screen__title screen__title--warning">Er zit mogelijk een kaartje<br>vast in het mondje</p>
+        <p class="screen__subtitle">Probeer voorzichtig, of gebruik<br>de barcode scanner rechtsonder.</p>
+        <button class="btn btn--secondary" onclick="scanBarcode()">▦ Gebruik barcode scanner</button>
+        <button class="btn btn--secondary" style="opacity:.6;font-size:10px;" onclick="forceInsertTicket()">Toch invoeren via gleuf</button>
+      `,
+        });
+        setNavBar({ back: true, label: 'Kaartmondje — let op' });
+        return;
+    }
+
+    // Ticket beschadigd of kwijt
+    if (cfg.ticketFout) {
+        setGlow('glow-ticket', 'error');
+        setKaartLed('#CC1624');
+        setScreen({
+            modifier: 'error',
+            badge: 'Fout',
+            badgeModifier: 'error',
+            html: `
+        <span style="font-size:24px;" class="icon--shake">⚠️</span>
+        <p class="screen__title screen__title--error">Ticket kan niet worden gelezen</p>
+        <p class="screen__subtitle">Het ticket is mogelijk beschadigd<br>of verkreukeld.</p>
         <button class="btn btn--danger" onclick="showKentekenInput()">🔢 Voer kenteken in</button>
         <button class="btn btn--secondary" onclick="showIntercom()">📞 Bel de meldkamer</button>
       `,
-    });
-    setNavBar({ back: true, label: 'Ticket niet leesbaar' });
-    return;
-  }
+        });
+        setNavBar({ back: true, label: 'Ticket niet leesbaar' });
+        return;
+    }
 
-  // Kaartmondje blocked = greyed out, barcode is primary option
-  const kaartBlokkeerd = cfg.kaartVast;
-
-  if (!kaartBlokkeerd) setSlot('slot-kaart',   'active', '🎫 Ticket invoeren');
-  else                  setSlot('slot-kaart',   'blink',  '🎫 ⚠ Geblokkeerd');
-  if (!cfg.barcodeDefect) setSlot('slot-barcode', 'active', '▦ Of scan barcode');
-
-  const kaartBtnHtml = kaartBlokkeerd
-    ? `<button class="pay-option pay-option--disabled">
-        🎫 Kaartmondje
-        <span class="pay-option__tag pay-option__tag--error">⚠ geblokkeerd</span>
-       </button>`
-    : `<button class="pay-option pay-option--selected" onclick="showKaartmondjeInvoer()">
-        🎫 Kaartmondje
-        <span class="pay-option__tag">voorkant →</span>
-       </button>`;
-
-  const barcodeBtnHtml = cfg.barcodeDefect
-    ? `<button class="pay-option pay-option--disabled">
-        ▦ Barcode scanner
-        <span class="pay-option__tag pay-option__tag--error">⚠ defect</span>
-       </button>`
-    : `<button class="pay-option ${kaartBlokkeerd ? 'pay-option--selected' : ''}" onclick="showBarcodeInvoer()">
-        ▦ Barcode scanner
-        <span class="pay-option__tag">rechterkant →</span>
-       </button>`;
-
-  setScreen({
-    progress: 15,
-    badge: '1 / 4',
-    html: `
-      <p class="screen__title">Hoe wilt u uw ticket invoeren?</p>
-      ${kaartBlokkeerd ? '<p class="screen__subtitle" style="color:var(--color-red);font-weight:600;">⚠ Kaartmondje is tijdelijk geblokkeerd</p>' : '<div class="screen__divider"></div>'}
-      ${kaartBtnHtml}
-      ${barcodeBtnHtml}
-      <div class="screen__divider"></div>
-      <button class="btn btn--secondary" style="font-size:10px;" onclick="showKentekenInput()">Ticket kwijt of beschadigd?</button>
-    `,
-  });
-  setNavBar({ back: true, label: 'Stap 1 / 4 — Ticket invoeren' });
-}
-
-function showKaartmondjeInvoer() {
-  const cfg = getConfig();
-
-  if (cfg.kaartVast) {
-    // Kaartje vastzit — show warning but still allow trying, suggest barcode
-    setSlot('slot-kaart', 'blink', '');
-    if (!cfg.barcodeDefect) setSlot('slot-barcode', 'active', '');
+    // Ticket OK — kort flash dan door naar betaalkeuze
+    setGlow('glow-ticket', 'success');
+    setKaartLed('#2E7D32');
     setScreen({
-      modifier: 'warning',
-      badge: 'Let op',
-      badgeModifier: 'warning',
-      html: `
-        <p style="font-size:22px;">⚠️</p>
-        <p class="screen__title screen__title--warning">Er zit mogelijk een kaartje<br>vast in het mondje</p>
-        <p class="screen__subtitle">Probeer het voorzichtig in te voeren,<br>of gebruik de barcode scanner.</p>
-        <button class="btn btn--secondary" onclick="showBarcodeInvoer()">▦ Gebruik barcode scanner</button>
-        <button class="btn btn--secondary" style="font-size:10px;opacity:.6;" onclick="forceKaartmondje()">Toch proberen via kaartmondje</button>
-      `,
+        modifier: 'success',
+        progress: 30,
+        html: `
+      <div class="success-icon" style="width:36px;height:36px;font-size:18px;">✓</div>
+      <p class="screen__title screen__title--success">Ticket gelezen</p>
+      <p class="screen__subtitle">Even geduld...</p>
+    `,
     });
-    setNavBar({ back: true, label: 'Kaartmondje — let op' });
-    return;
-  }
+    setTimeout(() => showBetaalkeuze(), 800);
+}
 
-  setSlot('slot-kaart',   'active', '🎫 ← Schuif ticket in');
-  if (!cfg.barcodeDefect) setSlot('slot-barcode', '', '▦ Barcode scanner');
+function forceInsertTicket() {
+    const cfg = getConfig();
+    clearAllGlows();
+    setGlow('glow-ticket', 'blink');
+    if (cfg.ticketFout) { insertTicket(); return; }
+    setScreen({
+        progress: 30,
+        html: `
+      <div class="success-icon" style="width:36px;height:36px;font-size:18px;">✓</div>
+      <p class="screen__title screen__title--success">Ticket gelezen</p>
+      <p class="screen__subtitle" style="color:var(--color-orange);">⚠ Let op: controleer de gleuf na gebruik</p>
+    `,
+    });
+    setTimeout(() => showBetaalkeuze(), 800);
+}
 
-  // Make barcode overlay clickable to switch
-  setTimeout(() => {
-    const barcodeEl = document.getElementById('slot-barcode');
-    if (barcodeEl && !cfg.barcodeDefect) {
-      barcodeEl.classList.add('is-clickable');
-      barcodeEl.onclick = () => showBarcodeInvoer();
+// ─────────────────────────────────────────────
+//  BARCODE SCAN
+// ─────────────────────────────────────────────
+function scanBarcode() {
+    const cfg = getConfig();
+    clearAllGlows();
+
+    if (cfg.barcodeDefect) return; // scanner defect, doet niets
+
+    if (cfg.ticketFout) {
+        setGlow('glow-barcode', 'error');
+        insertTicket(); // toon fout scherm
+        return;
     }
-  }, 50);
 
-  setScreen({
-    progress: 20,
-    badge: '1 / 4',
-    html: `
-      <p class="screen__title">Schuif uw ticket in<br>het kaartmondje</p>
-      <svg width="64" height="38" viewBox="0 0 64 38" style="opacity:.25;margin:4px 0;">
-        <rect x="0" y="8" width="46" height="22" rx="2" fill="none" stroke="#333" stroke-width="2"/>
-        <line x1="6" y1="19" x2="40" y2="19" stroke="#333" stroke-width="1.5"/>
-        <path d="M46 19 L64 19" stroke="#333" stroke-width="2" stroke-dasharray="3"/>
-      </svg>
-      <p class="screen__subtitle">Barcode naar boven,<br>schuif langzaam in de gleuf</p>
-      <button class="btn btn--primary" onclick="showBetaalkeuze()">✓ Ticket ingevoerd</button>
+    setGlow('glow-barcode', 'active');
+    setScreen({
+        progress: 30,
+        html: `
+      <div style="font-size:26px;animation:tap-pulse 0.6s ease-in-out 3;">▦</div>
+      <p class="screen__title screen__title--success" style="color:#2E7D32;">Barcode gelezen</p>
+      <p class="screen__subtitle">Even geduld...</p>
     `,
-  });
-  setNavBar({ back: true, label: 'Kaartmondje' });
+    });
+    setTimeout(() => {
+        clearAllGlows();
+        showBetaalkeuze();
+    }, 800);
 }
 
-function forceKaartmondje() {
-  // User insists — show normal kaartmondje screen but keep blink warning
-  const cfg = getConfig();
-  setSlot('slot-kaart', 'blink', '');
-  setScreen({
-    progress: 20,
-    badge: '1 / 4',
-    html: `
-      <p class="screen__title">Schuif uw ticket in<br>het kaartmondje</p>
-      <svg width="64" height="38" viewBox="0 0 64 38" style="opacity:.25;margin:4px 0;">
-        <rect x="0" y="8" width="46" height="22" rx="2" fill="none" stroke="#333" stroke-width="2"/>
-        <line x1="6" y1="19" x2="40" y2="19" stroke="#333" stroke-width="1.5"/>
-        <path d="M46 19 L64 19" stroke="#333" stroke-width="2" stroke-dasharray="3"/>
-      </svg>
-      <p class="screen__subtitle" style="color:var(--color-orange);">⚠ Let op: mogelijk zit er nog<br>een kaartje in het mondje</p>
-      <button class="btn btn--primary" onclick="showBetaalkeuze()">✓ Ticket ingevoerd</button>
-    `,
-  });
-  setNavBar({ back: true, label: 'Kaartmondje' });
-}
-
-function showBarcodeInvoer() {
-  const cfg = getConfig();
-  setSlot('slot-barcode', 'active', '▦ ← Houd ticket voor scanner');
-  if (!cfg.kaartVast) setSlot('slot-kaart', '', '🎫 Kaartmondje');
-  else setSlot('slot-kaart', 'blink', '🎫 ⚠ Geblokkeerd');
-
-  // Make kaartmondje overlay clickable to switch back (unless kaartje vastzit)
-  setTimeout(() => {
-    const kaartEl = document.getElementById('slot-kaart');
-    if (kaartEl && !cfg.kaartVast) {
-      kaartEl.classList.add('is-clickable');
-      kaartEl.onclick = () => showKaartmondjeInvoer();
-    }
-  }, 50);
-
-  setScreen({
-    progress: 20,
-    badge: '1 / 4',
-    html: `
-      <p class="screen__title">Houd uw ticket voor<br>de barcode scanner</p>
-      <div style="font-size:32px;animation:tap-pulse 1s ease-in-out infinite alternate;">▦</div>
-      <p class="screen__subtitle">Houd de barcode op het ticket<br>voor de scanner aan de rechterkant</p>
-      <button class="btn btn--primary" onclick="showBetaalkeuze()">✓ Ticket gescand</button>
-    `,
-  });
-  setNavBar({ back: true, label: 'Barcode scanner' });
-}
-
-// ── Betaalkeuze ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  BETAALKEUZE
+// ─────────────────────────────────────────────
 function showBetaalkeuze() {
-  state.step = 'betaalkeuze';
-  resetAllSlots();
-  const cfg = getConfig();
+    state.step = 'betaalkeuze';
+    state.cashTarget = getConfig().euro;
+    clearAllGlows(); // geen glows op keuze scherm
 
-  setSlot('slot-kaart',  'success', '✓ Ticket gelezen');
-  if (!cfg.barcodeDefect) setSlot('slot-barcode', 'success', '▦ Gelezen');
+    const cfg = getConfig();
 
-  const contantHtml = cfg.muntDefect
-    ? `<button class="pay-option pay-option--disabled" onclick="showMuntenDefect()">
+    const contantHtml = cfg.muntDefect
+        ? `<button class="pay-option pay-option--disabled" onclick="showMuntenDefect()">
         💵 Contant betalen
         <span class="pay-option__tag pay-option__tag--error">⚠ defect</span>
        </button>`
-    : `<button class="pay-option" onclick="showContant()">💵 Contant betalen</button>`;
+        : `<button class="pay-option" onclick="showContant()">💵 Contant betalen</button>`;
 
-  setScreen({
-    progress: 50,
-    badge: '2 / 4',
-    html: `
+    setScreen({
+        progress: 40,
+        badge: '2 / 4',
+        html: `
       <p class="screen__title">Uw parkeertijd</p>
       <p class="screen__amount">${cfg.euroStr}</p>
       <p class="screen__amount-sub">${cfg.duur} · ${cfg.garage}</p>
@@ -432,195 +355,381 @@ function showBetaalkeuze() {
       <button class="pay-option pay-option--selected" onclick="showPin()">💳 Pinpas / Creditcard</button>
       ${contantHtml}
     `,
-  });
-  setNavBar({ back: true, next: true, label: 'Stap 2 / 4 — Betaalkeuze' });
+    });
+    setNavBar({ back: true, next: true, label: 'Stap 2 / 4 — Betaalkeuze' });
 }
 
-// ── Muntenverwerker defect ─────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  PIN BETALEN
+// ─────────────────────────────────────────────
+function showPin() {
+    state.step = 'pin';
+    clearAllGlows();
+
+    // Pinpas gleuf + contactloos vlakje pulseren
+    setGlow('glow-pinpas', 'active');
+
+    const cfg = getConfig();
+    setScreen({
+        progress: 65,
+        badge: '3 / 4',
+        html: `
+      <p class="screen__title">Betaal met uw bankpas</p>
+      <div style="font-size:26px;animation:tap-pulse 1s ease-in-out infinite alternate;">💳</div>
+      <p class="screen__subtitle">Steek uw pas in de pinpas gleuf →<br><span style="font-size:9px;color:#AAA;">of gebruik de contactloze betaalknop op de terminal</span></p>
+    `,
+    });
+    setNavBar({ back: true, label: 'Stap 3 / 4 — Bankpas' });
+}
+
+
+function showPinpadDots(on) {
+    // Switch pinpad screen between idle state and dot state
+    ['pin-screen-idle','pin-screen-idle2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.setAttribute('visibility', on ? 'hidden' : 'visible');
+    });
+    ['pin-screen-label','pin-svg-dot-1','pin-svg-dot-2','pin-svg-dot-3','pin-svg-dot-4'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.setAttribute('visibility', on ? 'visible' : 'hidden');
+    });
+}
+
+function updatePinpadDots(count) {
+    for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById('pin-svg-dot-' + i);
+        if (!el) return;
+        if (i <= count) {
+            el.textContent = '●';
+            el.setAttribute('fill', '#FFFFFF');
+        } else {
+            el.textContent = '○';
+            el.setAttribute('fill', '#336699');
+        }
+    }
+}
+function showPincodeInvoer() {
+    state.step = 'pincode';
+    state.cashIn = state.cashTarget;
+    state.pincode = '';
+    clearAllGlows();
+    setGlow('glow-pinpas', 'active');
+
+    // Groot scherm: wacht op pinpad terminal
+    setScreen({
+        progress: 80,
+        badge: '3 / 4',
+        html: `
+      <div style="font-size:26px;animation:tap-pulse 1.2s ease-in-out infinite alternate;">💳</div>
+      <p class="screen__title">Voer uw pincode in<br>op de terminal →</p>
+      <p class="screen__subtitle" style="font-size:9px;color:#AAA;">Gebruik de toetsen op het pinpad rechts</p>
+    `,
+    });
+    setNavBar({ back: true, label: 'Stap 3 / 4 — Pincode' });
+
+    // Pinpad scherm (SVG): toon bolletjes
+    showPinpadDots(true);
+    updatePinpadDots(0);
+    state.pincode = '';
+}
+
+// Aangeroepen door de fysieke toetsen op de SVG pinterminal
+function terminalToets(k) {
+    if (state.step !== 'pincode') return;
+
+    if (k === 'clear') {
+        state.pincode = '';
+    } else if (k === 'ok') {
+        if (state.pincode.length >= 4) bevestigPin();
+        return;
+    } else if (state.pincode.length < 4) {
+        state.pincode += k;
+    }
+
+    // Update dots op het SVG pinpad scherm
+    updatePinpadDots(state.pincode.length);
+
+    // Flash de toets op het pinpad visueel
+    flashTerminalToets(k);
+
+    // Na 4 cijfers automatisch naar bevestig
+    if (state.pincode.length === 4) {
+        setTimeout(() => bevestigPin(), 600);
+    }
+}
+
+function flashTerminalToets(k) {
+    // Highlight de pinpad glow kort
+    setGlow('glow-pinpas', 'active');
+    setTimeout(() => {
+        if (state.step === 'pincode') setGlow('glow-pinpas', 'active');
+    }, 150);
+}
+
+function bevestigPin() {
+    clearAllGlows();
+    setGlow('glow-pinpas', 'success');
+    // Reset pinpad scherm naar idle
+    showPinpadDots(false);
+    setScreen({
+        modifier: 'success',
+        progress: 90,
+        html: `
+      <div class="success-icon" style="width:36px;height:36px;font-size:18px;">✓</div>
+      <p class="screen__title screen__title--success">Betaling goedgekeurd</p>
+      <p class="screen__subtitle">Even geduld...</p>
+    `,
+    });
+    setTimeout(() => {
+        clearAllGlows();
+        showKlaar();
+    }, 900);
+}
+
+function betaalPin() {
+    showPincodeInvoer();
+}
+
+// ─────────────────────────────────────────────
+//  MUNTENVERWERKER DEFECT
+// ─────────────────────────────────────────────
 function showMuntenDefect() {
-  setSlot('slot-munten', 'blink', '🪙 ⚠ Defect');
-  setSlot('slot-wissel', 'blink', '🪙 ⚠ Defect');
-  setScreen({
-    modifier: 'warning',
-    badge: 'Let op',
-    badgeModifier: 'warning',
-    html: `
-      <span class="icon--shake" style="font-size:28px;">⚠️</span>
+    clearAllGlows();
+    setGlow('glow-munten', 'blink');
+    setScreen({
+        modifier: 'warning',
+        badge: 'Let op',
+        badgeModifier: 'warning',
+        html: `
+      <span style="font-size:24px;" class="icon--shake">⚠️</span>
       <p class="screen__title screen__title--warning">Contant betalen<br>is tijdelijk niet mogelijk</p>
-      <p class="screen__subtitle">De muntenverwerker is buiten bedrijf.<br>Kies een andere betaalmethode.</p>
-      <div class="screen__divider"></div>
+      <p class="screen__subtitle">De muntenverwerker is buiten bedrijf.</p>
       <button class="btn btn--primary" onclick="showPin()">💳 Betaal met pinpas</button>
       <button class="btn btn--secondary" onclick="showIntercom()">📞 Bel de meldkamer</button>
     `,
-  });
+    });
+    setNavBar({ back: true, label: 'Muntenverwerker defect' });
 }
 
-// ── Pin betalen ────────────────────────────────────────────────────────────
-function showPin() {
-  state.step = 'pin';
-  resetAllSlots();
-  setSlot('slot-kaart', 'success', '✓ Gelezen');
-  setPinSlot(true);
-
-  setScreen({
-    progress: 75,
-    badge: '3 / 4',
-    html: `
-      <p class="screen__title">Houd uw pinpas<br>tegen de lezer</p>
-      <div style="font-size:32px;animation:tap-pulse 1s ease-in-out infinite alternate;">💳</div>
-      <p class="screen__subtitle">Of voer uw pincode in op de lezer</p>
-    `,
-  });
-  setNavBar({ back: true, next: true, label: 'Stap 3 / 4 — Pinpas' });
-}
-
-// ── Contant betalen ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  CONTANT BETALEN
+// ─────────────────────────────────────────────
 function showContant() {
-  state.step = 'contant';
-  state.cashIn = 0;
-  state.cashTarget = getConfig().euro;
-  resetAllSlots();
-  setSlot('slot-kaart', 'success', '✓ Gelezen');
+    state.step = 'contant';
+    state.cashIn = 0;
+    clearAllGlows();
 
-  const cfg = getConfig();
-  if (cfg.gepast) {
-    setSlot('slot-wissel', 'error', '🪙 Geen wisselgeld');
-    setScreen({
-      modifier: 'warning',
-      badge: 'Let op',
-      badgeModifier: 'warning',
-      html: `
-        <span style="font-size:28px;">💰</span>
+    const cfg = getConfig();
+
+    // Gepast betalen — melding eerst
+    if (cfg.gepast) {
+        setGlow('glow-wissel', 'error');
+        setScreen({
+            modifier: 'warning',
+            badge: 'Let op',
+            badgeModifier: 'warning',
+            html: `
+        <span style="font-size:24px;">💰</span>
         <p class="screen__title screen__title--warning">Betaal alstublieft gepast</p>
         <p class="screen__subtitle">Er is geen wisselgeld beschikbaar.<br>Vul exact ${cfg.euroStr} in.</p>
-        <div class="screen__divider"></div>
-        <button class="btn btn--warning" onclick="renderContantInvoer()">Ik begrijp het — doorgaan</button>
+        <button class="btn btn--warning" onclick="renderContant()">Ik begrijp het — doorgaan</button>
       `,
-    });
-    setNavBar({ back: true, label: 'Gepast betalen vereist' });
-  } else {
-    renderContantInvoer();
-  }
+        });
+        setNavBar({ back: true, label: 'Gepast betalen vereist' });
+    } else {
+        renderContant();
+    }
 }
 
-function renderContantInvoer() {
-  const cfg = getConfig();
+function renderContant() {
+    const cfg = getConfig();
+    clearAllGlows();
 
-  setSlot('slot-munten', 'active', '🪙 ← Munten invoeren');
-  if (!cfg.briefDefect) setSlot('slot-brief', 'active', '💵 ← Biljet invoeren');
-  else setSlot('slot-brief', 'blink', '💵 ⚠ Geblokkeerd');
-  if (cfg.gepast) setSlot('slot-wissel', 'error', '🪙 Geen wisselgeld');
+    // Actieve glows: munten altijd, brief alleen als niet defect
+    setGlow('glow-munten', 'active');
+    if (!cfg.briefDefect) {
+        setGlow('glow-brief',   'active');
+    } else {
+        setGlow('glow-brief',   'error');
+    }
+    if (cfg.gepast) setGlow('glow-wissel', 'error');
 
-  const ing   = state.cashIn.toFixed(2).replace('.', ',');
-  const tekort = Math.max(0, state.cashTarget - state.cashIn).toFixed(2).replace('.', ',');
-  const vol   = state.cashIn >= state.cashTarget;
+    const ing    = state.cashIn.toFixed(2).replace('.', ',');
+    const tekort = Math.max(0, state.cashTarget - state.cashIn).toFixed(2).replace('.', ',');
+    const vol    = state.cashIn >= state.cashTarget;
 
-  const briefDisabled = cfg.briefDefect;
-
-  setScreen({
-    modifier: vol ? 'success' : '',
-    progress: 65,
-    badge: '3 / 4',
-    html: `
+    setScreen({
+        modifier: vol ? 'success' : '',
+        progress: 65,
+        badge: '3 / 4',
+        html: `
       <p class="screen__title">Voer geld in</p>
       <div class="cash-display ${vol ? 'cash-display--paid' : ''}">
         <p class="cash-display__amount ${vol ? 'cash-display__amount--paid' : ''}">€ ${ing}</p>
         <p class="cash-display__label">Te betalen: ${cfg.euroStr} · Nog: € ${tekort}</p>
       </div>
       <div class="cash-buttons">
-        <button class="btn btn--secondary" onclick="addCash(0.5)">🪙 50ct</button>
+        <button class="btn btn--secondary" onclick="addCash(.5)">🪙 50ct</button>
         <button class="btn btn--secondary" onclick="addCash(1)">🪙 €1</button>
         <button class="btn btn--secondary" onclick="addCash(2)">🪙 €2</button>
-        <button class="btn btn--secondary ${briefDisabled ? 'pay-option--disabled' : ''}"
-          onclick="${briefDisabled ? 'flashBriefGleuf()' : 'addCash(5)'}">💵 €5</button>
-        <button class="btn btn--secondary ${briefDisabled ? 'pay-option--disabled' : ''}"
-          onclick="${briefDisabled ? 'flashBriefGleuf()' : 'addCash(10)'}">💵 €10</button>
-        <button class="btn btn--secondary ${briefDisabled ? 'pay-option--disabled' : ''}"
-          onclick="${briefDisabled ? 'flashBriefGleuf()' : 'addCash(20)'}">💵 €20</button>
+        <button class="btn btn--secondary ${cfg.briefDefect ? 'pay-option--disabled' : ''}"
+          onclick="${cfg.briefDefect ? 'flashBriefDefect()' : 'addCash(5)'}">💵 €5</button>
+        <button class="btn btn--secondary ${cfg.briefDefect ? 'pay-option--disabled' : ''}"
+          onclick="${cfg.briefDefect ? 'flashBriefDefect()' : 'addCash(10)'}">💵 €10</button>
+        <button class="btn btn--secondary ${cfg.briefDefect ? 'pay-option--disabled' : ''}"
+          onclick="${cfg.briefDefect ? 'flashBriefDefect()' : 'addCash(20)'}">💵 €20</button>
       </div>
-      ${vol ? `<button class="btn btn--success" onclick="showBetaaldScherm()">✓ Doorgaan</button>` : ''}
+      ${vol ? `<button class="btn btn--success" onclick="showKlaar()">✓ Doorgaan</button>` : ''}
     `,
-  });
-  setNavBar({ back: true, label: 'Stap 3 / 4 — Contant' });
+    });
+    setNavBar({ back: true, label: 'Stap 3 / 4 — Contant' });
 }
 
 function addCash(amount) {
-  state.cashIn = Math.round((state.cashIn + amount) * 100) / 100;
-  renderContantInvoer();
+    state.cashIn = Math.round((state.cashIn + amount) * 100) / 100;
+    renderContant();
 }
 
-function flashBriefGleuf() {
-  setSlot('slot-brief', 'blink', '💵 ⚠ Geblokkeerd');
-  const content = document.getElementById('screen-content');
-  const msg = document.createElement('p');
-  msg.style.cssText = 'padding:5px 8px;background:#FFF3F3;border:1px solid var(--color-red);border-radius:4px;font-size:10px;color:var(--color-red);font-weight:600;text-align:center;width:100%;';
-  msg.textContent = '⚠ Briefgeld gleuf is niet beschikbaar — gebruik munten';
-  content.appendChild(msg);
-  setTimeout(() => renderContantInvoer(), 2000);
+function flashBriefDefect() {
+    setGlow('glow-brief', 'blink');
+    const content = document.getElementById('screen-content');
+    const msg = document.createElement('p');
+    msg.style.cssText = 'padding:4px 8px;background:#FFF3F3;border:1px solid #CC1624;border-radius:4px;font-size:9px;color:#CC1624;font-weight:600;text-align:center;width:100%;margin-top:4px;';
+    msg.textContent = '⚠ Briefgeld gleuf is niet beschikbaar — gebruik munten';
+    content.appendChild(msg);
+    setTimeout(() => renderContant(), 2000);
 }
 
-// ── Betaling gelukt ────────────────────────────────────────────────────────
-function showBetaaldScherm() {
-  state.step = 'klaar';
-  resetAllSlots();
-  const cfg = getConfig();
+// ─────────────────────────────────────────────
+//  KLAAR SCHERM
+// ─────────────────────────────────────────────
+function showKlaar() {
+    state.step = 'klaar';
+    clearAllGlows();
 
-  setSlot('slot-kaart',    'success', '📤 Ticket uitgeworpen');
-  setSlot('slot-kwitantie','success', '📄 Kwitantie');
+    const cfg = getConfig();
+    const wissel = Math.round((state.cashIn - state.cashTarget) * 100) / 100;
+    const heeftWissel = wissel > 0 && !cfg.gepast;
 
-  const wissel = Math.round((state.cashIn - state.cashTarget) * 100) / 100;
-  const wisselHtml = wissel > 0 && !cfg.gepast
-    ? `<p class="screen__subtitle" style="color:var(--color-green);">Wisselgeld: € ${wissel.toFixed(2).replace('.', ',')}</p>`
-    : '';
+    // Ticket uitvoer bak pulseert — bezoeker moet ticket pakken
+    setGlow('glow-ticket',    'active');
+    setGlow('glow-ticket', 'active'); // ticket komt hier uit
+    setKaartLed('#2E7D32');
 
-  if (wissel > 0 && !cfg.gepast) {
-    setSlot('slot-wissel', 'success', `🪙 € ${wissel.toFixed(2).replace('.', ',')} terug`);
-  }
+    // Wisselgeld gleuf alleen actief als er wisselgeld is
+    if (heeftWissel) {
+        setGlow('glow-wissel',    'active');
+        setGlow('glow-kwitantie', 'active');
+    }
 
-  setScreen({
-    modifier: 'success',
-    progress: 100,
-    badge: '✓ Klaar',
-    badgeModifier: 'success',
-    html: `
+    const wisselHtml = heeftWissel
+        ? `<p class="screen__subtitle" id="wissel-reminder"
+        style="color:var(--color-green);font-weight:600;cursor:pointer;"
+        onclick="haalWisselgeldOp()">
+        💰 Wisselgeld: € ${wissel.toFixed(2).replace('.', ',')} — klik om op te pakken ↙
+       </p>`
+        : '';
+
+    setScreen({
+        modifier: 'success',
+        progress: 100,
+        badge: '✓ Klaar',
+        badgeModifier: 'success',
+        html: `
       <div class="success-icon">✓</div>
-      <p class="screen__title screen__title--success">Betaling geslaagd</p>
-      <p class="screen__subtitle">Bedankt voor uw betaling!<br>U kunt nu uitrijden.</p>
+      <p class="screen__title screen__title--success">Betaling geslaagd!</p>
+      <p class="screen__subtitle">U kunt nu uitrijden.</p>
       ${wisselHtml}
-      <p class="screen__subtitle" style="background:#FFF9E6;border:1px solid #F0D060;border-radius:6px;padding:6px 10px;color:#7A6000;font-weight:600;">🎫 Vergeet uw kaartje niet!</p>
-      <button class="btn btn--primary" onclick="showIdle()">Nieuw bezoek</button>
+      <button class="btn btn--secondary" style="font-size:10px;" onclick="printKwitantie()">📄 Kwitantie afdrukken</button>
+      <div class="screen__divider"></div>
+      <p class="screen__subtitle" id="ticket-reminder"
+        style="font-weight:600;color:#1A1A1A;cursor:pointer;" onclick="haalTicketOp()">
+        🎫 Pak uw ticket uit de gleuf links ←
+      </p>
     `,
-  });
-  setNavBar({ label: '✓ Betaling voltooid' });
+    });
+    setNavBar({ label: '✓ Betaling voltooid — pak uw ticket' });
+
+    // Na 5 seconden: subtiele reminder als ticket nog niet is gepakt
+    if (window._ticketTimer) clearTimeout(window._ticketTimer);
+    window._ticketTimer = setTimeout(() => {
+        const el = document.getElementById('ticket-reminder');
+        if (el) {
+            el.style.cssText = 'font-weight:700;color:#CC1624;background:#FFF5F5;border:1px solid #CC1624;border-radius:6px;padding:6px 10px;cursor:pointer;animation:shake 0.4s ease;';
+            el.textContent = '⚠ Vergeet uw ticket niet!';
+        }
+        setGlow('glow-ticket', 'blink');
+        setGlow('glow-ticket', 'blink');
+        setKaartLed('#CC1624');
+    }, 5000);
 }
 
-// ── Kenteken invoer ────────────────────────────────────────────────────────
+function haalWisselgeldOp() {
+    if (state.step !== 'klaar') return;
+    setGlow('glow-wissel',    'success');
+    setGlow('glow-kwitantie', 'success');
+    // Update reminder text
+    const el = document.getElementById('wissel-reminder');
+    if (el) {
+        el.style.color = '#2E7D32';
+        el.textContent = '✓ Wisselgeld gepakt';
+    }
+}
+
+function haalTicketOp() {
+    if (state.step !== 'klaar') return;
+    if (window._ticketTimer) clearTimeout(window._ticketTimer);
+    clearAllGlows();
+    setScreen({
+        modifier: 'success',
+        progress: 100,
+        html: `
+      <div class="success-icon">✓</div>
+      <p class="screen__title screen__title--success">Fijn rijden!</p>
+      <p class="screen__subtitle">Tot ziens bij P1 Parking.</p>
+    `,
+    });
+    setNavBar({ label: 'Tot ziens!' });
+    setTimeout(() => showIdle(), 2000);
+}
+
+function printKwitantie() {
+    // Kwitantie / wisselgeld gleuf actief
+    setGlow('glow-kwitantie', 'active');
+    const content = document.getElementById('screen-content');
+    const msg = document.createElement('p');
+    msg.style.cssText = 'font-size:9px;color:#2E7D32;font-weight:600;text-align:center;width:100%;';
+    msg.textContent = '📄 Kwitantie wordt afgedrukt...';
+    content.appendChild(msg);
+    setTimeout(() => {
+        setGlow('glow-kwitantie', 'success');
+        msg.textContent = '📄 Pak uw kwitantie uit de gleuf →';
+    }, 1200);
+}
+
+// ─────────────────────────────────────────────
+//  KENTEKEN FLOW
+// ─────────────────────────────────────────────
 function showKentekenInput() {
-  state.step = 'kenteken';
-  state.kentekenInput = '';
-  resetAllSlots();
-  setZoom(true);
-  renderKentekenInput();
+    state.step = 'kenteken';
+    state.kentekenInput = '';
+    clearAllGlows();
+    renderKentekenInput();
 }
 
 function renderKentekenInput() {
-  // Rij 1: cijfers
-  const numRow  = ['1','2','3','4','5','6','7','8','9','0'];
-  // Rij 2: QWERTYUIOP
-  const row1    = ['Q','W','E','R','T','Y','U','I','O','P'];
-  // Rij 3: ASDFGHJKL
-  const row2    = ['A','S','D','F','G','H','J','K','L'];
-  // Rij 4: ZXCVBNM + streepje
-  const row3    = ['Z','X','C','V','B','N','M','-'];
-
-  const rowHtml = (keys, extraClass = '') =>
-    `<div style="display:flex;gap:4px;width:100%;justify-content:center;">
-      ${keys.map(k => `<button class="keyboard__key ${extraClass}" style="flex:1;" onclick="typeKenteken('${k}')">${k}</button>`).join('')}
+    const numRow = ['1','2','3','4','5','6','7','8','9','0'];
+    const row1   = ['Q','W','E','R','T','Y','U','I','O','P'];
+    const row2   = ['A','S','D','F','G','H','J','K','L'];
+    const row3   = ['Z','X','C','V','B','N','M','-'];
+    const rowHtml = keys =>
+        `<div style="display:flex;gap:4px;width:100%;justify-content:center;">
+      ${keys.map(k => `<button class="keyboard__key" style="flex:1;" onclick="typeKenteken('${k}')">${k}</button>`).join('')}
     </div>`;
 
-  setScreen({
-    progress: 30,
-    html: `
+    setScreen({
+        progress: 30,
+        html: `
       <p class="screen__title">Voer uw kenteken in</p>
       <div class="text-input">
         <span id="kenteken-display">${state.kentekenInput}</span>
@@ -631,136 +740,135 @@ function renderKentekenInput() {
         ${rowHtml(row1)}
         ${rowHtml(row2)}
         ${rowHtml(row3)}
-        <div style="display:flex;gap:4px;width:100%;">
+        <div style="display:flex;gap:4px;">
           <button class="keyboard__key" style="flex:1;" onclick="typeKenteken('⌫')">⌫</button>
         </div>
       </div>
       <button class="btn btn--primary" onclick="zoekKenteken()">Zoeken →</button>
     `,
-  });
-  setNavBar({ back: true, label: 'Kenteken invoeren' });
+    });
+    setNavBar({ back: true, label: 'Kenteken invoeren' });
 }
 
-function typeKenteken(key) {
-  if (key === '⌫') {
-    state.kentekenInput = state.kentekenInput.slice(0, -1);
-  } else if (state.kentekenInput.length < 9) {
-    state.kentekenInput += key;
-  }
-  const el = document.getElementById('kenteken-display');
-  if (el) el.textContent = state.kentekenInput;
+function typeKenteken(k) {
+    if (k === '⌫') state.kentekenInput = state.kentekenInput.slice(0, -1);
+    else if (state.kentekenInput.length < 9) state.kentekenInput += k;
+    const el = document.getElementById('kenteken-display');
+    if (el) el.textContent = state.kentekenInput;
 }
 
 function zoekKenteken() {
-  const found = lookupPlate(state.kentekenInput);
-  if (found) {
-    state.foundPlate = found;
-    showKentekenGevonden(found);
-  } else {
-    setScreen({
-      modifier: 'error',
-      badge: 'Niet gevonden',
-      badgeModifier: 'error',
-      html: `
-        <span class="icon--shake" style="font-size:28px;">⚠️</span>
+    const found = lookupPlate(state.kentekenInput);
+    if (found) {
+        state.foundPlate = found;
+        showKentekenGevonden(found);
+    } else {
+        setScreen({
+            modifier: 'error',
+            badge: 'Niet gevonden',
+            badgeModifier: 'error',
+            html: `
+        <span class="icon--shake" style="font-size:24px;">⚠️</span>
         <p class="screen__title screen__title--error">Kenteken niet gevonden</p>
-        <p class="screen__subtitle">"${state.kentekenInput}" staat niet geregistreerd<br>in ons systeem.</p>
+        <p class="screen__subtitle">"${state.kentekenInput}" staat niet geregistreerd.</p>
         <button class="btn btn--secondary" onclick="renderKentekenInput()">← Opnieuw proberen</button>
         <button class="btn btn--secondary" onclick="showIntercom()">📞 Bel de meldkamer</button>
       `,
-    });
-  }
+        });
+    }
 }
 
-function showKentekenGevonden(plate) {
-  state.step = 'kenteken-betaal';
-  resetAllSlots();
-  setPinSlot(true);
+function showKentekenGevonden(k) {
+    state.step = 'kt-betaal';
+    state.cashTarget = k.euro;
+    clearAllGlows();
+    setGlow('glow-pinpas', 'active');
 
-  const euroStr = '€ ' + plate.euro.toFixed(2).replace('.', ',');
-  const cfg = getConfig();
-
-  setScreen({
-    progress: 60,
-    html: `
+    const euroStr = '€ ' + k.euro.toFixed(2).replace('.', ',');
+    const cfg = getConfig();
+    setScreen({
+        progress: 55,
+        html: `
       <p class="screen__title">Kenteken gevonden</p>
       <div class="found-plate">
-        <p class="found-plate__number">${plate.plate}</p>
-        <p class="found-plate__meta">Ingecheckt: ${plate.tijd} · ${plate.duur} · ${cfg.garage}</p>
+        <p class="found-plate__number">${k.plate}</p>
+        <p class="found-plate__meta">Ingecheckt: ${k.tijd} · ${k.duur} · ${cfg.garage}</p>
       </div>
       <p class="screen__amount">${euroStr}</p>
       <div class="screen__divider"></div>
       <button class="pay-option pay-option--selected" onclick="showPinKenteken()">💳 Pinpas / Creditcard</button>
-      <button class="pay-option" onclick="showContantKenteken(${plate.euro})">💵 Contant betalen</button>
+      <button class="pay-option" onclick="showContantKenteken(${k.euro})">💵 Contant betalen</button>
     `,
-  });
-  setNavBar({ back: true, label: `Kenteken ${plate.plate} gevonden` });
+    });
+    setNavBar({ back: true, label: `Kenteken ${k.plate} gevonden` });
 }
 
 function showPinKenteken() {
-  setPinSlot(true);
-  setScreen({
-    progress: 80,
-    html: `
-      <p class="screen__title">Houd uw pinpas<br>tegen de lezer</p>
-      <div style="font-size:32px;animation:tap-pulse 1s ease-in-out infinite alternate;">💳</div>
-      <p class="screen__subtitle">Of voer uw pincode in op de lezer</p>
+    clearAllGlows();
+    setGlow('glow-pinpas', 'active');
+    setScreen({
+        progress: 75,
+        html: `
+      <p class="screen__title">Betaal met uw bankpas</p>
+      <div style="font-size:26px;animation:tap-pulse 1s ease-in-out infinite alternate;">💳</div>
+      <p class="screen__subtitle">Tik uw pas op de contactloze lezer →<br>of steek uw pas in de pinpas gleuf →</p>
     `,
-  });
-  setNavBar({ back: true, next: true, label: 'Betalen via kenteken' });
+    });
+    setNavBar({ back: true, next: true, label: 'Betalen via kenteken' });
 }
 
 function showContantKenteken(euro) {
-  state.cashIn = 0;
-  state.cashTarget = euro;
-  state.step = 'contant';
-  resetAllSlots();
-  renderContantInvoer();
+    state.cashIn = 0;
+    state.cashTarget = euro;
+    state.step = 'contant';
+    clearAllGlows();
+    showContant();
 }
 
-// ── Intercom ───────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  INTERCOM
+// ─────────────────────────────────────────────
 function showIntercom() {
-  const cfg = getConfig();
-  setSlot('slot-intercom', 'success', '📞\n\nVerbinden...');
-
-  const wachtrij = cfg.wachtrij;
-  const wachtrijHtml = wachtrij === 0
-    ? 'U wordt direct verbonden.'
-    : `Er ${wachtrij === 1 ? 'is' : 'zijn'} <span class="queue-indicator__count">${wachtrij} ${wachtrij === 1 ? 'persoon' : 'personen'}</span> voor u.`;
-
-  setScreen({
-    modifier: 'warning',
-    badge: 'Intercom',
-    badgeModifier: 'warning',
-    html: `
-      <div style="font-size:28px;animation:tap-pulse 1s ease-in-out infinite alternate;">📞</div>
+    clearAllGlows();
+    setGlow('glow-intercom', 'active');
+    const cfg = getConfig();
+    const wq = cfg.wachtrij;
+    const wqHtml = wq === 0
+        ? 'U wordt direct verbonden.'
+        : `Er ${wq === 1 ? 'is' : 'zijn'} <span class="queue-indicator__count">${wq} ${wq === 1 ? 'persoon' : 'personen'}</span> voor u.`;
+    setScreen({
+        modifier: 'warning',
+        badge: 'Intercom',
+        badgeModifier: 'warning',
+        html: `
+      <div style="font-size:26px;animation:tap-pulse 1s ease-in-out infinite alternate;">📞</div>
       <p class="screen__title">Meldkamer wordt gebeld</p>
-      <div class="queue-indicator">${wachtrijHtml}</div>
-      <p class="screen__subtitle">Blijf bij het apparaat staan.<br>Een medewerker helpt u zo snel mogelijk.</p>
+      <div class="queue-indicator">${wqHtml}</div>
+      <p class="screen__subtitle">Blijf bij het apparaat staan.</p>
       <button class="btn btn--secondary" onclick="showIdle()">✕ Ophangen</button>
     `,
-  });
-  setNavBar({ label: 'Intercom actief' });
+    });
+    setNavBar({ label: 'Intercom actief' });
 }
 
 // ─────────────────────────────────────────────
-//  NAV BAR BUTTONS
+//  NAV KNOPPEN
 // ─────────────────────────────────────────────
 function handleNext() {
-  if (state.step === 'ticket')       showBetaalkeuze();
-  else if (state.step === 'betaalkeuze') showPin();
-  else if (state.step === 'pin')     showBetaaldScherm();
-  else if (state.step === 'kenteken-betaal') showPinKenteken();
+    if (state.step === 'betaalkeuze')  showPin();
+    else if (state.step === 'pin')     showPincodeInvoer();
+    else if (state.step === 'pincode') bevestigPin();
+    else if (state.step === 'kt-betaal') showPincodeInvoer();
 }
 
 function handleBack() {
-  if (state.step === 'ticket')            showIdle();
-  else if (state.step === 'betaalkeuze')  showTicketKeuze();
-  else if (state.step === 'pin')          showBetaalkeuze();
-  else if (state.step === 'contant')      showBetaalkeuze();
-  else if (state.step === 'kenteken')     showIdle();
-  else if (state.step === 'kenteken-betaal') showKentekenInput();
-  else showIdle();
+    if (state.step === 'betaalkeuze')  insertTicket();
+    else if (state.step === 'pin')     showBetaalkeuze();
+    else if (state.step === 'pincode') showPin();
+    else if (state.step === 'contant') showBetaalkeuze();
+    else if (state.step === 'kenteken') showIdle();
+    else if (state.step === 'kt-betaal') showKentekenInput();
+    else showIdle();
 }
 
 // ─────────────────────────────────────────────
