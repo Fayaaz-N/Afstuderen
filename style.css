@@ -16,19 +16,19 @@
   --color-surface:  #1A1A1A;
   --color-line:     #2A2A2A;
 
-  --screen-min-height: min(360px, calc(100vh - 380px));
-  --machine-width:     min(560px, calc(100vw - 340px - 48px));
+  --screen-min-height: 0px;
+  --machine-width:     300px;
 
   --radius-sm:  4px;
   --radius-md:  8px;
   --radius-lg:  20px;
 
-  --font-xs:   11px;
-  --font-sm:   12px;
-  --font-base: 13px;
+  --font-xs:   10px;
+  --font-sm:   11px;
+  --font-base: 12px;
   --font-md:   17px;
   --font-lg:   20px;
-  --font-xl:   38px;
+  --font-xl:   32px;
 }
 
 /* ─────────────────────────────────────────────
@@ -77,9 +77,9 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 20px;
-  overflow: hidden;
+  gap: 16px;
+  padding: 24px 20px;
+  overflow-y: auto;
 }
 
 /* ─────────────────────────────────────────────
@@ -313,10 +313,10 @@ body {
   background: #D4D4D4;
   border: 3px solid #555;
   border-radius: var(--radius-lg);
-  padding: 20px 20px 22px;
+  padding: 18px 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 11px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
@@ -340,9 +340,9 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 20px;
-  min-height: var(--screen-min-height);
+  gap: 10px;
+  padding: 18px;
+  min-height: 280px;
   background: white;
   border: 2.5px solid #444;
   border-radius: var(--radius-md);
@@ -394,7 +394,7 @@ body {
 
 /* Screen typography */
 .screen__title {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   text-align: center;
   color: var(--color-dark);
@@ -406,7 +406,7 @@ body {
 .screen__title--warning { color: var(--color-orange); }
 
 .screen__subtitle {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--color-gray);
   text-align: center;
   line-height: 1.5;
@@ -436,7 +436,7 @@ body {
 ───────────────────────────────────────────── */
 .btn {
   width: 100%;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border: none;
   border-radius: var(--radius-md);
   font-family: 'Inter', sans-serif;
@@ -481,12 +481,12 @@ body {
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: #F5F5F5;
   border: 1.5px solid #DDD;
   border-radius: var(--radius-md);
   font-family: 'Inter', sans-serif;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   color: #333;
   cursor: pointer;
@@ -529,7 +529,7 @@ body {
 }
 
 .keyboard__key {
-  height: 28px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -537,7 +537,7 @@ body {
   border: 1px solid #CCC;
   border-radius: 3px;
   font-family: 'Inter', sans-serif;
-  font-size: var(--font-sm);
+  font-size: 10px;
   font-weight: 600;
   color: #444;
   cursor: pointer;
@@ -619,7 +619,7 @@ body {
 }
 
 .cash-display__amount {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 900;
   color: var(--color-dark);
 }
@@ -700,7 +700,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: 42px;
+  height: 36px;
   padding: 0 8px;
   background: white;
   border: 2px dashed #AAA;
@@ -711,8 +711,8 @@ body {
   transition: border-color 0.2s, color 0.2s;
 }
 
-.slot--tall  { height: 80px; flex-direction: column; }
-.slot--slim  { height: 32px; }
+.slot--tall  { height: 72px; flex-direction: column; }
+.slot--slim  { height: 26px; }
 .slot--wide  { flex: 1.2; }
 .slot--narrow { flex: 0.8; }
 
@@ -791,8 +791,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  width: var(--machine-width);
-  margin-top: 2px;
+  width: 300px;
+  margin-top: 0;
 }
 
 .nav-bar__btn {
