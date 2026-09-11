@@ -2,7 +2,6 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Betaalautomaat — P1 Parking Prototype</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -10,86 +9,40 @@
 
 <div class="layout">
 
-  <!-- ═══ ADMIN PANEL ═══════════════════════════════════════════════ -->
+  <!-- ADMIN PANEL -->
   <aside class="layout__panel">
-
     <header class="panel__header">⚙ Admin Panel</header>
 
-    <!-- Status apparaat -->
     <section class="panel__section">
       <h2 class="panel__section-title">Status apparaat</h2>
-
       <div class="panel__row">
-        <label class="panel__label" for="cfg-kaart-vast">
-          Kaartmondje geblokkeerd
-          <span class="panel__label-sub">Ticket vastzit → melding bij start</span>
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="cfg-kaart-vast" onchange="showIdle()">
-          <span class="toggle__track"></span>
-        </label>
+        <label class="panel__label" for="cfg-kaart-vast">Kaartje vastzit in kaartmondje<span class="panel__label-sub">Waarschuwing bij kaartmondje kiezen</span></label>
+        <label class="toggle"><input type="checkbox" id="cfg-kaart-vast" onchange="showIdle()"><span class="toggle__track"></span></label>
       </div>
-
       <div class="panel__row">
-        <label class="panel__label" for="cfg-munt-defect">
-          Muntenverwerker defect
-          <span class="panel__label-sub">Melding bij contant kiezen</span>
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="cfg-munt-defect" onchange="showIdle()">
-          <span class="toggle__track"></span>
-        </label>
+        <label class="panel__label" for="cfg-munt-defect">Muntenverwerker defect<span class="panel__label-sub">Melding bij contant kiezen</span></label>
+        <label class="toggle"><input type="checkbox" id="cfg-munt-defect" onchange="showIdle()"><span class="toggle__track"></span></label>
       </div>
-
       <div class="panel__row">
-        <label class="panel__label" for="cfg-brief-defect">
-          Briefgeld gleuf geblokkeerd
-          <span class="panel__label-sub">Alleen munten mogelijk</span>
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="cfg-brief-defect" onchange="showIdle()">
-          <span class="toggle__track"></span>
-        </label>
+        <label class="panel__label" for="cfg-brief-defect">Briefgeld gleuf geblokkeerd<span class="panel__label-sub">Alleen munten mogelijk</span></label>
+        <label class="toggle"><input type="checkbox" id="cfg-brief-defect" onchange="showIdle()"><span class="toggle__track"></span></label>
       </div>
-
       <div class="panel__row">
-        <label class="panel__label" for="cfg-gepast">
-          Gepast betalen vereist
-          <span class="panel__label-sub">Geen wisselgeld beschikbaar</span>
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="cfg-gepast" onchange="showIdle()">
-          <span class="toggle__track"></span>
-        </label>
+        <label class="panel__label" for="cfg-gepast">Gepast betalen vereist<span class="panel__label-sub">Geen wisselgeld beschikbaar</span></label>
+        <label class="toggle"><input type="checkbox" id="cfg-gepast" onchange="showIdle()"><span class="toggle__track"></span></label>
       </div>
-
       <div class="panel__row">
-        <label class="panel__label" for="cfg-barcode-defect">
-          Barcode scanner defect
-          <span class="panel__label-sub">Alleen kaartmondje beschikbaar</span>
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="cfg-barcode-defect" onchange="showIdle()">
-          <span class="toggle__track"></span>
-        </label>
+        <label class="panel__label" for="cfg-barcode-defect">Barcode scanner defect<span class="panel__label-sub">Alleen kaartmondje beschikbaar</span></label>
+        <label class="toggle"><input type="checkbox" id="cfg-barcode-defect" onchange="showIdle()"><span class="toggle__track"></span></label>
       </div>
     </section>
 
-    <!-- Parkeerticket -->
     <section class="panel__section">
       <h2 class="panel__section-title">Parkeerticket</h2>
-
       <div class="panel__row">
-        <label class="panel__label" for="cfg-ticket-fout">
-          Ticket beschadigd / kwijt
-          <span class="panel__label-sub">Foutmelding bij invoer → kenteken route</span>
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="cfg-ticket-fout" onchange="showIdle()">
-          <span class="toggle__track"></span>
-        </label>
+        <label class="panel__label" for="cfg-ticket-fout">Ticket beschadigd / kwijt<span class="panel__label-sub">Foutmelding bij invoer → kenteken route</span></label>
+        <label class="toggle"><input type="checkbox" id="cfg-ticket-fout" onchange="showIdle()"><span class="toggle__track"></span></label>
       </div>
-
       <div>
         <label class="panel__label" for="cfg-duur">Parkeerduur & bedrag</label>
         <select class="panel__select" id="cfg-duur" onchange="showIdle()">
@@ -101,7 +54,6 @@
           <option value="1 dag|22.00">1 dag — € 22,00</option>
         </select>
       </div>
-
       <div style="margin-top:8px;">
         <label class="panel__label" for="cfg-garage">Garage locatie</label>
         <select class="panel__select" id="cfg-garage" onchange="showIdle()">
@@ -113,32 +65,16 @@
       </div>
     </section>
 
-    <!-- Kenteken registraties -->
     <section class="panel__section">
       <h2 class="panel__section-title">Kenteken registraties</h2>
-
       <div class="kenteken-list" id="kenteken-list"></div>
-
       <div class="kenteken-add">
-        <input
-          class="kenteken-add__input"
-          type="text"
-          id="kenteken-new-plate"
-          placeholder="AB-123-C"
-          maxlength="9"
-          oninput="this.value = this.value.toUpperCase()"
-        >
-        <input
-          class="kenteken-add__input kenteken-add__input--price"
-          type="text"
-          id="kenteken-new-price"
-          placeholder="€ bedrag"
-        >
+        <input class="kenteken-add__input" type="text" id="kenteken-new-plate" placeholder="AB-123-C" maxlength="9" oninput="this.value=this.value.toUpperCase()">
+        <input class="kenteken-add__input kenteken-add__input--price" type="text" id="kenteken-new-price" placeholder="€ bedrag">
         <button class="kenteken-add__btn" onclick="addKenteken()">+</button>
       </div>
     </section>
 
-    <!-- Intercom -->
     <section class="panel__section">
       <h2 class="panel__section-title">Intercom / Meldkamer</h2>
       <label class="panel__label" for="cfg-wachtrij">Wachtrij (personen voor bezoeker)</label>
@@ -153,56 +89,164 @@
     <div class="panel__footer">
       <button class="panel__reset-btn" onclick="showIdle()">↺ Automaat resetten</button>
     </div>
-
   </aside>
 
-  <!-- ═══ STAGE ══════════════════════════════════════════════════════ -->
+  <!-- STAGE -->
   <main class="layout__stage">
 
-    <!-- Machine -->
-    <div class="machine">
-      <div class="machine__logo">P1 PARKING</div>
+    <!-- MACHINE SCENE -->
+    <div class="scene" id="scene">
 
-      <!-- Screen -->
-      <div class="screen" id="screen">
-        <div class="screen__content" id="screen-content"></div>
-        <div class="screen__progress" id="progress"></div>
-      </div>
+      <!-- MACHINE SVG -->
+      <div class="machine-wrap" id="machine-wrap">
+        <svg class="machine-svg" id="machine-svg" viewBox="0 0 340 620" xmlns="http://www.w3.org/2000/svg">
 
-      <!-- Hardware -->
-      <div class="hardware">
+          <!-- Sign boven de machine -->
+          <rect x="20" y="0" width="300" height="28" rx="6" fill="#0033AA"/>
+          <text x="170" y="18" text-anchor="middle" fill="white" font-size="11" font-weight="700" font-family="Inter,sans-serif" letter-spacing="3">P  BETAALAUTOMAAT  P</text>
+          <!-- blauwe glow strips -->
+          <rect x="20" y="25" width="300" height="4" rx="2" fill="#4488FF" opacity="0.6"/>
 
-        <!-- Kaartmondje + Barcode scanner -->
-        <div class="hardware__row">
-          <div class="slot slot--wide" id="slot-kaart">🎫 Kaartmondje</div>
-          <div class="slot slot--narrow" id="slot-barcode">▦ Barcode scanner</div>
+          <!-- Machine body -->
+          <rect x="30" y="32" width="280" height="560" rx="18" fill="#E8E8E8" stroke="#BBBBBB" stroke-width="2"/>
+          <!-- lichte rand links voor diepte -->
+          <rect x="30" y="32" width="8" height="560" rx="4" fill="white" opacity="0.4"/>
+          <!-- donkere rand rechts -->
+          <rect x="302" y="32" width="8" height="560" rx="4" fill="#999" opacity="0.3"/>
+
+          <!-- Voorpaneel donker -->
+          <rect x="50" y="50" width="240" height="530" rx="10" fill="#2A2A2A"/>
+
+          <!-- SCHERM BEZEL -->
+          <rect x="58" y="62" width="155" height="205" rx="6" fill="#111111"/>
+          <!-- scherm zelf — hier komt de HTML overlay -->
+          <rect id="screen-rect" x="62" y="66" width="147" height="197" rx="4" fill="#1A1A2E"/>
+
+          <!-- Speaker rechtsboven -->
+          <g opacity="0.6">
+            <rect x="224" y="68" width="52" height="40" rx="4" fill="#1A1A1A"/>
+            <line x1="230" y1="75" x2="270" y2="75" stroke="#444" stroke-width="1.5"/>
+            <line x1="230" y1="80" x2="270" y2="80" stroke="#444" stroke-width="1.5"/>
+            <line x1="230" y1="85" x2="270" y2="85" stroke="#444" stroke-width="1.5"/>
+            <line x1="230" y1="90" x2="270" y2="90" stroke="#444" stroke-width="1.5"/>
+            <line x1="230" y1="95" x2="270" y2="95" stroke="#444" stroke-width="1.5"/>
+            <line x1="230" y1="100" x2="270" y2="100" stroke="#444" stroke-width="1.5"/>
+          </g>
+
+          <!-- KAARTMONDJE bezel + gleuf -->
+          <rect x="222" y="118" width="64" height="36" rx="5" fill="#111"/>
+          <rect x="226" y="130" width="56" height="12" rx="3" fill="#222" stroke="#444" stroke-width="1"/>
+          <text x="254" y="126" text-anchor="middle" fill="#666" font-size="7" font-family="Inter,sans-serif">KAART</text>
+          <!-- kaartje animatie indicator — groen/rood/oranje -->
+          <rect id="kaart-led" x="274" y="120" width="8" height="8" rx="4" fill="#333"/>
+
+          <!-- Kaartmondje clickable hitbox -->
+          <rect id="hw-kaart" x="218" y="114" width="72" height="44" rx="5" fill="transparent" stroke="transparent" stroke-width="2" style="cursor:pointer;" onclick="onHwClick('kaart')"/>
+
+          <!-- PINPAD bezel -->
+          <rect x="220" y="164" width="66" height="90" rx="5" fill="#0A0A0A"/>
+          <rect x="224" y="168" width="58" height="55" rx="3" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+          <!-- pinpad grid -->
+          <g fill="#2A2A2A" stroke="#444" stroke-width="0.5">
+            <rect x="228" y="172" width="14" height="10" rx="2"/>
+            <rect x="245" y="172" width="14" height="10" rx="2"/>
+            <rect x="262" y="172" width="14" height="10" rx="2"/>
+            <rect x="228" y="185" width="14" height="10" rx="2"/>
+            <rect x="245" y="185" width="14" height="10" rx="2"/>
+            <rect x="262" y="185" width="14" height="10" rx="2"/>
+            <rect x="228" y="198" width="14" height="10" rx="2"/>
+            <rect x="245" y="198" width="14" height="10" rx="2"/>
+            <rect x="262" y="198" width="14" height="10" rx="2"/>
+            <rect x="228" y="211" width="14" height="10" rx="2"/>
+            <rect x="245" y="211" width="14" height="10" rx="2"/>
+            <rect x="262" y="211" width="14" height="10" rx="2"/>
+          </g>
+          <!-- contactloos icoontje op pinpad scherm -->
+          <text id="pin-icon-svg" x="253" y="175" text-anchor="middle" fill="#333" font-size="16" font-family="Inter,sans-serif">⬡</text>
+          <text x="253" y="259" text-anchor="middle" fill="#555" font-size="7" font-family="Inter,sans-serif">PINPAS LEZER</text>
+
+          <!-- INTERCOM knop -->
+          <rect x="218" y="272" width="30" height="22" rx="4" fill="#111" stroke="#333" stroke-width="1"/>
+          <text x="233" y="286" text-anchor="middle" font-size="10" font-family="Inter,sans-serif">📞</text>
+          <rect id="hw-intercom" x="216" y="270" width="34" height="26" rx="4" fill="transparent" stroke="transparent" stroke-width="2" style="cursor:pointer;" onclick="showIntercom()"/>
+
+          <!-- BARCODE SCANNER (rode bak onderaan) -->
+          <rect x="58" y="284" width="148" height="42" rx="5" fill="#111"/>
+          <rect x="64" y="290" width="136" height="30" rx="3" fill="#8B0000" opacity="0.7"/>
+          <!-- rode scan lijntjes -->
+          <line x1="70" y1="305" x2="194" y2="305" stroke="#FF3333" stroke-width="1" opacity="0.8"/>
+          <line x1="70" y1="300" x2="194" y2="300" stroke="#FF2222" stroke-width="0.5" opacity="0.4"/>
+          <line x1="70" y1="310" x2="194" y2="310" stroke="#FF2222" stroke-width="0.5" opacity="0.4"/>
+          <text x="132" y="280" text-anchor="middle" fill="#555" font-size="7" font-family="Inter,sans-serif">BARCODE SCANNER</text>
+          <rect id="hw-barcode" x="56" y="282" width="152" height="46" rx="5" fill="transparent" stroke="transparent" stroke-width="2" style="cursor:pointer;" onclick="onHwClick('barcode')"/>
+
+          <!-- BRIEFGELD GLEUF -->
+          <rect x="220" y="302" width="64" height="22" rx="4" fill="#111"/>
+          <rect x="224" y="308" width="56" height="10" rx="2" fill="#222" stroke="#444" stroke-width="1"/>
+          <text x="252" y="304" text-anchor="middle" fill="#555" font-size="7" font-family="Inter,sans-serif">BRIEFGELD</text>
+          <rect id="hw-brief" x="218" y="298" width="68" height="30" rx="4" fill="transparent" stroke="transparent" stroke-width="2"/>
+
+          <!-- MUNTEN INVOER -->
+          <rect x="58" y="340" width="66" height="36" rx="5" fill="#111"/>
+          <ellipse cx="91" cy="358" rx="20" ry="12" fill="#222" stroke="#444" stroke-width="1"/>
+          <text x="91" y="385" text-anchor="middle" fill="#555" font-size="7" font-family="Inter,sans-serif">MUNTEN</text>
+          <rect id="hw-munten" x="56" y="338" width="70" height="52" rx="5" fill="transparent" stroke="transparent" stroke-width="2"/>
+
+          <!-- WISSELGELD UITVOER -->
+          <rect x="136" y="340" width="70" height="36" rx="5" fill="#111"/>
+          <rect x="140" y="348" width="62" height="20" rx="3" fill="#1A1A1A" stroke="#333" stroke-width="1"/>
+          <text x="171" y="385" text-anchor="middle" fill="#555" font-size="7" font-family="Inter,sans-serif">WISSELGELD</text>
+          <rect id="hw-wissel" x="134" y="338" width="74" height="52" rx="5" fill="transparent" stroke="transparent" stroke-width="2"/>
+
+          <!-- KWITANTIE gleuf -->
+          <rect x="220" y="340" width="64" height="36" rx="5" fill="#111"/>
+          <rect x="224" y="352" width="56" height="6" rx="2" fill="#222" stroke="#444" stroke-width="1"/>
+          <text x="252" y="385" text-anchor="middle" fill="#555" font-size="7" font-family="Inter,sans-serif">KWITANTIE</text>
+          <rect id="hw-kvt" x="218" y="338" width="68" height="52" rx="5" fill="transparent" stroke="transparent" stroke-width="2"/>
+
+          <!-- Grote kaartmondje gleuf onderin -->
+          <rect x="96" y="400" width="148" height="44" rx="8" fill="#111"/>
+          <rect x="102" y="412" width="136" height="20" rx="4" fill="#1A1A1A" stroke="#555" stroke-width="1.5"/>
+          <text x="170" y="408" text-anchor="middle" fill="#666" font-size="8" font-family="Inter,sans-serif">PARKEERTICKET INVOEREN</text>
+          <!-- kleine LEDjes -->
+          <circle cx="108" cy="422" r="3" fill="#333" id="ticket-led-l"/>
+          <circle cx="282" cy="422" r="3" fill="#333" id="ticket-led-r"/>
+
+          <!-- Scheidt Bachmann logo -->
+          <text x="170" y="590" text-anchor="middle" fill="#555" font-size="9" font-weight="600" font-family="Inter,sans-serif" letter-spacing="1">SCHEIDT&amp;BACHMANN</text>
+          <circle cx="278" cy="587" r="8" fill="none" stroke="#555" stroke-width="1.5"/>
+          <text x="278" y="591" text-anchor="middle" fill="#555" font-size="7" font-family="Inter,sans-serif">SB</text>
+
+          <!-- bodem voet -->
+          <rect x="60" y="596" width="220" height="16" rx="4" fill="#CCCCCC"/>
+          <rect x="70" y="608" width="200" height="8" rx="3" fill="#B0B0B0"/>
+
+          <!-- LED strip onderin blauw -->
+          <rect x="30" y="614" width="280" height="5" rx="2" fill="#4488FF" opacity="0.5"/>
+
+          <!-- OVERLAY GLOWS — worden aangestuurd via JS -->
+          <rect id="glow-kaart"   x="218" y="114" width="72"  height="44"  rx="5"  fill="transparent" stroke="transparent" stroke-width="3" pointer-events="none"/>
+          <rect id="glow-barcode" x="56"  y="282" width="152" height="46"  rx="5"  fill="transparent" stroke="transparent" stroke-width="3" pointer-events="none"/>
+          <rect id="glow-brief"   x="218" y="298" width="68"  height="30"  rx="4"  fill="transparent" stroke="transparent" stroke-width="3" pointer-events="none"/>
+          <rect id="glow-munten"  x="56"  y="338" width="70"  height="52"  rx="5"  fill="transparent" stroke="transparent" stroke-width="3" pointer-events="none"/>
+          <rect id="glow-wissel"  x="134" y="338" width="74"  height="52"  rx="5"  fill="transparent" stroke="transparent" stroke-width="3" pointer-events="none"/>
+          <rect id="glow-kvt"     x="218" y="338" width="68"  height="52"  rx="5"  fill="transparent" stroke="transparent" stroke-width="3" pointer-events="none"/>
+          <rect id="glow-ticket"  x="94"  y="398" width="152" height="48"  rx="8"  fill="transparent" stroke="transparent" stroke-width="3" pointer-events="none"/>
+          <rect id="glow-intercom" x="216" y="270" width="34" height="26"  rx="4"  fill="transparent" stroke="transparent" stroke-width="2" pointer-events="none"/>
+
+        </svg>
+
+        <!-- HTML scherm gepositioneerd over de SVG -->
+        <div class="machine-screen" id="machine-screen">
+          <div class="screen" id="screen">
+            <div class="screen__content" id="screen-content"></div>
+            <div class="screen__progress" id="progress"></div>
+          </div>
         </div>
 
-        <!-- Briefgeld gleuf -->
-        <div class="slot" id="slot-brief">💵 Briefgeld gleuf</div>
+      </div><!-- /machine-wrap -->
 
-        <!-- Pin + kleine slots + intercom -->
-        <div class="hardware__row">
-
-          <div class="slot slot--tall" id="slot-pin">
-            <div id="pin-icon" style="font-size:18px;color:#AAA;">⬡</div>
-            <div class="slot__pin-label" id="pin-label" style="color:#AAA;">Pinpas lezer</div>
-          </div>
-
-          <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
-            <div class="slot slot--slim" id="slot-munten">🪙 Munten invoer</div>
-            <div class="slot slot--slim" id="slot-wissel">🪙 Wisselgeld uitvoer</div>
-            <div class="slot slot--slim" id="slot-kwitantie">📄 Kwitantie</div>
-          </div>
-
-          <div class="slot slot--tall slot--intercom" id="slot-intercom" onclick="showIntercom()">
-            <span style="font-size:16px;">📞</span>
-            <span style="font-size:7px;color:#AAA;margin-top:3px;">Intercom</span>
-          </div>
-
-        </div>
-      </div>
-    </div>
+    </div><!-- /scene -->
 
     <!-- Nav bar -->
     <nav class="nav-bar">
@@ -212,10 +256,8 @@
     </nav>
 
   </main>
-
 </div>
 
 <script src="app.js"></script>
-
 </body>
 </html>
