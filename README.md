@@ -10,7 +10,7 @@ Klikbaar lo-fi prototype van de herontworpen hardware-interface voor de betaalau
 
 ## Demo
 
-Open `` in je browser. Geen installatie of server nodig.
+Open [mijn Live Prototype](https://fayaaz-n.github.io/Afstuderen/prototype/index.html) in je browser. Geen installatie of server nodig.
 
 ---
 
