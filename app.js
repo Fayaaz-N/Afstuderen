@@ -137,15 +137,110 @@ function setScreen({ modifier = '', progress = 0, badge = null, badgeModifier = 
 }
 
 function setNavBar({ back = false, next = false, label = '—' }) {
-    document.getElementById('btn-back').disabled = !back;
-    document.getElementById('btn-next').disabled = !next;
-    document.getElementById('nav-label').innerHTML = label;
+    // De nav-bar is uit index.html verwijderd; deze functie wordt nog wel
+    // overal aangeroepen. Null-safe houden, anders breekt de hele flow.
+    const btnBack  = document.getElementById('btn-back');
+    const btnNext  = document.getElementById('btn-next');
+    const navLabel = document.getElementById('nav-label');
+
+    if (btnBack)  btnBack.disabled  = !back;
+    if (btnNext)  btnNext.disabled  = !next;
+    if (navLabel) navLabel.innerHTML = label;
+
+    // Elke stap eindigt hier, ná het zetten van state.step.
+    // Handig aanhaakpunt om het mobiele aanzicht bij te werken.
+    syncMobielAanzicht();
+}
+
+/* ─────────────────────────────────────────────
+   MOBIEL AANZICHT
+   Per stap bepalen we waar de bezoeker moet kijken.
+   'scherm'   = lezen of typen op het display  -> machine breed, scroll naar scherm
+   'hardware' = iets fysieks doen aan de automaat -> hele machine in beeld
+───────────────────────────────────────────── */
+const STAP_FOCUS = {
+    idle:         'scherm',     // welkomscherm lezen en een route kiezen
+    betaalkeuze:  'scherm',     // bedrag lezen en betaalmethode kiezen
+    pin:          'hardware',   // pas voor de lezer houden
+    pincode:      'hardware',   // pincode op de terminal, die zit op de machine
+    contant:      'hardware',   // munt- en briefgleuf lichten op, die moet je zien
+    kenteken:     'scherm',     // toetsenbord staat op het display
+    'kt-betaal':  'hardware',   // alsnog met de pas betalen
+    klaar:        'hardware',   // ticket uit de bak pakken
+};
+
+function syncMobielAanzicht() {
+    if (!isMobile()) return;
+
+    const wrap = document.getElementById('machine-wrap');
+    if (!wrap) return;
+
+    const schermGericht = (STAP_FOCUS[state.step] || 'hardware') === 'scherm';
+    wrap.classList.toggle('is-zoomed', schermGericht);
+
+    // Even wachten tot de breedte-overgang loopt, anders scrollen we naar de oude positie
+    clearTimeout(window._viewTimer);
+    window._viewTimer = setTimeout(() => {
+        if (schermGericht) {
+            const scherm = document.getElementById('machine-screen');
+            if (scherm) scherm.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        } else {
+            const stage = document.querySelector('.layout__stage');
+            if (stage) stage.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        }
+    }, 300);
 }
 
 function setZoom(on) {
     const wrap = document.getElementById('machine-wrap');
-    if (wrap) wrap.classList.toggle('is-zoomed', on);
+    if (!wrap) return;
+
+    // Op een telefoon bepaalt de stap het aanzicht, niet een tik van de bezoeker.
+    // Anders staat de hardware buiten beeld precies wanneer je die moet aanraken.
+    if (isMobile()) { syncMobielAanzicht(); return; }
+
+    wrap.classList.toggle('is-zoomed', on);
 }
+
+/* ─────────────────────────────────────────────
+   ADMIN PANEL — lade op mobiel
+───────────────────────────────────────────── */
+function isMobile() {
+    return window.matchMedia('(max-width: 900px)').matches;
+}
+
+function setPanel(open) {
+    const panel    = document.getElementById('admin-panel');
+    const backdrop = document.getElementById('panel-backdrop');
+    const toggle   = document.getElementById('panel-toggle');
+
+    if (panel)    panel.classList.toggle('is-open', open);
+    if (backdrop) backdrop.classList.toggle('is-open', open);
+    if (toggle) {
+        toggle.classList.toggle('is-active', open);
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.setAttribute('aria-label', open ? 'Admin Panel sluiten' : 'Admin Panel openen');
+    }
+}
+
+function togglePanel() {
+    const panel = document.getElementById('admin-panel');
+    setPanel(!(panel && panel.classList.contains('is-open')));
+}
+
+function closePanel() {
+    setPanel(false);
+}
+
+// Escape sluit de lade
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closePanel();
+});
+
+// Terug naar desktopbreedte: lade altijd dicht, anders blijft hij hangen
+window.addEventListener('resize', () => {
+    if (!isMobile()) closePanel();
+});
 
 // ─────────────────────────────────────────────
 //  HARDWARE CLICK — CONTEXT AWARE

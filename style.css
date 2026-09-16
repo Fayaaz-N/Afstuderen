@@ -47,6 +47,7 @@ body {
     color: var(--color-dark);
     min-height: 100vh;
     height: 100vh;
+    height: 100dvh; /* dvh: houdt rekening met de adresbalk op mobiel */
     overflow: hidden;
     display: flex;
 }
@@ -94,7 +95,24 @@ body {
     letter-spacing: 1.5px;
     text-transform: uppercase;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
+
+.panel__close {
+    display: none; /* alleen op mobiel */
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px 6px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+.panel__close:hover { background: rgba(255,255,255,0.18); }
 
 .panel__section {
     padding: 12px 14px;
@@ -277,6 +295,7 @@ body {
 
 .kenteken-add__input {
     flex: 1.5;
+    min-width: 0; /* zonder dit krimpen flex-items niet onder hun inhoudsbreedte */
     padding: 5px 7px;
     background: var(--color-surface);
     border: 1px solid #333;
@@ -323,6 +342,9 @@ body {
     /* Fixed width, height follows SVG aspect ratio 420:640 = 65.6% */
     width: min(520px, calc(100vh * 0.72));
     aspect-ratio: 460 / 620;
+    /* Container query: schermtekst schaalt mee met de máchine (cqw),
+       niet met de viewport. Daardoor werkt inzoomen ook echt. */
+    container-type: inline-size;
     /* Zoom animation when interacting */
     transform-origin: center 35%;
     transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -362,14 +384,27 @@ body {
 }
 
 /* Scale screen content font relative to container */
-.machine-screen .screen__title    { font-size: clamp(11px, 1.8vw, 15px); }
-.machine-screen .screen__subtitle { font-size: clamp(10px, 1.4vw, 12px); }
-.machine-screen .screen__amount   { font-size: clamp(20px, 2.8vw, 28px); }
-.machine-screen .btn              { font-size: clamp(10px, 1.3vw, 12px); padding: 6px 8px; }
-.machine-screen .pay-option       { font-size: clamp(10px, 1.3vw, 12px); padding: 6px 8px; }
-.machine-screen .keyboard__key    { height: 22px; font-size: 10px; }
-.machine-screen .screen__content  { gap: 7px; padding: 12px; }
-.machine-screen .cash-display__amount { font-size: clamp(16px, 2.2vw, 22px); }
+/* Elke regel heeft eerst een vaste waarde en daarna de cqw-variant.
+   Safari ondersteunt container queries pas vanaf 16 (iOS 16). Oudere
+   iPhones negeren de tweede regel en houden de vaste waarde over. */
+.machine-screen .screen__title    { font-size: 13px; font-size: clamp(10px, 2.9cqw, 17px); }
+.machine-screen .screen__subtitle { font-size: 11px; font-size: clamp(9px,  2.3cqw, 14px); }
+.machine-screen .screen__amount   { font-size: 24px; font-size: clamp(18px, 5.4cqw, 32px); }
+.machine-screen .btn              { font-size: 11px; font-size: clamp(9px, 2.3cqw, 14px); padding: 6px 8px; }
+.machine-screen .pay-option       { font-size: 11px; font-size: clamp(9px, 2.3cqw, 14px); padding: 6px 8px; }
+.machine-screen .keyboard__key    { height: 24px; height: clamp(20px, 4.2cqw, 28px);
+    font-size: 11px; font-size: clamp(9px, 2cqw, 12px); }
+.machine-screen .screen__content  {
+    gap: 6px;
+    gap: clamp(4px, 1.3cqw, 8px);
+    padding: 10px;
+    padding: clamp(6px, 2.2cqw, 13px);
+    /* Veiligheidsnet: past de inhoud toch niet, dan scrollt het
+       binnen het display in plaats van dat het wegvalt. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.machine-screen .cash-display__amount { font-size: 19px; font-size: clamp(16px, 4.2cqw, 24px); }
 
 /* ─────────────────────────────────────────────
    SCREEN
@@ -918,4 +953,158 @@ body {
 @keyframes hw-blink {
     0%,100% { opacity: 1; }
     50%      { opacity: 0; }
+}
+/* ═════════════════════════════════════════════
+   RESPONSIVE — hamburger + mobiele machine
+   ═════════════════════════════════════════════ */
+
+/* Desktop: hamburger en backdrop bestaan niet */
+.panel-toggle,
+.panel-backdrop { display: none; }
+
+@media (max-width: 900px) {
+
+    /* ── Admin Panel wordt een uitschuifbare lade ── */
+    .layout__panel {
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        width: min(300px, 78vw);
+        height: 100dvh;
+        z-index: 60;
+        border-right: none;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.45);
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
+        overscroll-behavior: contain;
+    }
+    .layout__panel.is-open { transform: translateX(0); }
+
+    .panel__close { display: block; }
+
+    .panel-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(0,0,0,0.55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    .panel-backdrop.is-open {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* ── Hamburgerknop ── */
+    .panel-toggle {
+        display: flex;
+        position: fixed;
+        top: 10px; left: 10px;
+        z-index: 70;
+        width: 44px; height: 44px;   /* 44px = minimale tikmaat */
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        background: var(--color-red);
+        border: none;
+        border-radius: var(--radius-md);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .panel-toggle__bar {
+        display: block;
+        width: 20px;
+        height: 2px;
+        background: white;
+        border-radius: 2px;
+    }
+    .panel-toggle.is-active .panel-toggle__bar:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+    .panel-toggle.is-active .panel-toggle__bar:nth-child(2) { opacity: 0; }
+    .panel-toggle.is-active .panel-toggle__bar:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+    .panel-toggle__bar { transition: transform 0.25s ease, opacity 0.2s ease; }
+
+    /* Lade open: hamburger weg. Hij ligt over de paneltitel heen en
+       de lade heeft zijn eigen ✕ plus een tikbare backdrop. */
+    .panel-toggle {
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .panel-toggle.is-active {
+        opacity: 0;
+        transform: scale(0.85);
+        pointer-events: none;
+    }
+
+    /* ── Speelveld: ruimte voor de knop, en scrollbaar bij zoom ── */
+    .layout__stage {
+        padding: 62px 8px 20px;
+        overflow: auto;
+        justify-content: flex-start;
+        -webkit-overflow-scrolling: touch;
+        /* iOS wacht standaard ~300ms op een mogelijke dubbeltik voordat
+           het een tik doorgeeft. Dit zet die vertraging uit. */
+        touch-action: manipulation;
+    }
+
+    /* Safari legt een blauw vlak over aangeraakte SVG-elementen */
+    .machine-svg [id^="hw-"],
+    .machine-svg rect,
+    .machine-screen .btn,
+    .machine-screen .pay-option {
+        -webkit-tap-highlight-color: transparent;
+    }
+    .scene {
+        width: 100%;
+        /* margin-block auto centreert verticaal, maar kapt — anders dan
+           justify-content: center — de bovenkant niet af bij inzoomen */
+        margin-block: auto;
+    }
+
+    /* ── Machine ──
+       Zoom op mobiel = écht breder worden, niet scale().
+       Bij scale() blijven de tikdoelen op hun oude plek liggen en
+       kun je niet pannen; met breedte klopt alles en scrollt het gewoon. */
+    .machine-wrap {
+        /* Begrens op breedte én hoogte. 0.742 = 460/620, de verhouding
+           van de SVG. Zonder de dvh-term valt de machine liggend buiten beeld. */
+        width: min(520px, 94vw, calc((100dvh - 92px) * 0.742));
+        margin: 0 auto;
+        flex-shrink: 0;
+        transition: width 0.45s cubic-bezier(0.25,0.46,0.45,0.94);
+    }
+    .machine-wrap.is-zoomed {
+        transform: none;
+        width: min(780px, 190vw);
+    }
+
+    /* Schermtekst hoeft hier niet apart geregeld: de cqw-waarden
+       hierboven schalen al mee met de breedte van de machine. */
+}
+
+@media (max-width: 420px) {
+    .layout__stage { padding: 58px 4px 16px; }
+    .machine-wrap  { width: min(97vw, calc((100dvh - 86px) * 0.742)); }
+}
+
+/* Gebruikers die bewegingen liever beperken */
+@media (prefers-reduced-motion: reduce) {
+    .layout__panel,
+    .panel-backdrop,
+    .machine-wrap,
+    .panel-toggle__bar { transition: none !important; }
+}
+
+/* Liggende telefoon: weinig hoogte.
+   Bij hardwarestappen past de hele machine in beeld, zodat je de gleuven
+   ziet en kunt raken. Bij schermstappen schalen we op breedte — dan is het
+   display leesbaar en scroll je verticaal. */
+@media (max-width: 900px) and (max-height: 520px) {
+    .machine-wrap {
+        width: min(520px, 94vw, calc((100dvh - 80px) * 0.742));
+    }
+    .machine-wrap.is-zoomed {
+        width: min(560px, 70vw);
+    }
 }

@@ -2,14 +2,27 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Betaalautomaat — P1 Parking Prototype</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="layout">
 
-    <aside class="layout__panel">
-        <header class="panel__header">⚙ Admin Panel</header>
+    <!-- Alleen zichtbaar op mobiel: opent het Admin Panel -->
+    <button class="panel-toggle" id="panel-toggle" onclick="togglePanel()"
+            aria-label="Admin Panel openen" aria-expanded="false" aria-controls="admin-panel">
+        <span class="panel-toggle__bar"></span>
+        <span class="panel-toggle__bar"></span>
+        <span class="panel-toggle__bar"></span>
+    </button>
+    <div class="panel-backdrop" id="panel-backdrop" onclick="closePanel()"></div>
+
+    <aside class="layout__panel" id="admin-panel">
+        <header class="panel__header">
+            <span>⚙ Admin Panel</span>
+            <button class="panel__close" onclick="closePanel()" aria-label="Sluiten">✕</button>
+        </header>
         <section class="panel__section">
             <h2 class="panel__section-title">Status apparaat</h2>
             <div class="panel__row">
@@ -80,7 +93,7 @@
             </select>
         </section>
         <div class="panel__footer">
-            <button class="panel__reset-btn" onclick="showIdle()">↺ Automaat resetten</button>
+            <button class="panel__reset-btn" onclick="showIdle(); closePanel();">↺ Automaat resetten</button>
         </div>
     </aside>
 
