@@ -6,6 +6,7 @@ const state = {
     cashIn: 0,
     cashTarget: 0,
     kentekenInput: '',
+    ticketInMachine: false,   // alleen waar na invoer via de gleuf
     foundPlate: null,
     pincode: '',
 };
@@ -167,6 +168,7 @@ const STAP_FOCUS = {
     kenteken:     'scherm',     // toetsenbord staat op het display
     'kt-betaal':  'hardware',   // alsnog met de pas betalen
     klaar:        'hardware',   // ticket uit de bak pakken
+    afgebroken:   'hardware',   // ticket én geld terugnemen
 };
 
 function syncMobielAanzicht() {
@@ -269,8 +271,15 @@ function onHwClick(hw) {
             break;
 
         case 'klaar':
-            // Ticket gleuf links = ticket ophalen
+            // Ticket gleuf links = ticket ophalen, wisselbak = geld pakken
             if (hw === 'ticket') haalTicketOp();
+            if (hw === 'wissel') haalWisselgeldOp();
+            break;
+
+        case 'afgebroken':
+            // Betaling afgebroken: ticket en ingeworpen geld terugnemen
+            if (hw === 'ticket') haalTicketTerug();
+            if (hw === 'wissel') haalGeldTerug();
             break;
 
         case 'kenteken':
@@ -289,12 +298,42 @@ function showIdle() {
     state.cashTarget = 0;
     state.kentekenInput = '';
     state.foundPlate = null;
+    state.ticketInMachine = false;
     if (window._ticketTimer) clearTimeout(window._ticketTimer);
+    if (window._wisselTimer) clearTimeout(window._wisselTimer);
     clearAllGlows();
     setZoom(false);
 
     // Reset pinpad scherm naar idle state
     showPinpadDots(false);
+
+    const cfg = getConfig();
+
+    // Kaartmondje geblokkeerd: de gleuf is geen optie meer. Niet aanbieden
+    // wat niet kan — dat is precies de fout die de echte automaat maakt.
+    if (cfg.kaartVast) {
+        setGlow('glow-ticket', 'error');
+        setGlow('glow-barcode', 'active');
+        setKaartLed('#CC1624');
+
+        setScreen({
+            modifier: 'dark',
+            html: `
+      <p style="font-size:20px;opacity:.4;font-weight:900;color:#4488FF;letter-spacing:2px;">P1</p>
+      <p class="screen__title" style="color:white;">Welkom bij P1 Parking</p>
+      <div class="screen__divider" style="background:#333;"></div>
+      <p class="screen__subtitle" style="color:#FF8A8A;font-weight:600;">
+        ⚠ Kaartgleuf buiten gebruik — er zit een kaartje vast
+      </p>
+      <button class="btn btn--primary" style="background:#333;" onclick="scanBarcode()">▦ Ticket scannen via barcode</button>
+      <button class="btn btn--secondary" style="font-size:10px;border-color:#555;color:#AAA;" onclick="showKentekenInput()">Ticket kwijt of beschadigd?</button>
+      <button class="btn btn--secondary" style="font-size:10px;border-color:#555;color:#AAA;" onclick="showIntercom()">📞 Bel de meldkamer</button>
+    `,
+        });
+        setNavBar({ label: 'Kaartgleuf buiten gebruik' });
+        return;
+    }
+
     // Op idle: kaartmondje pulseert zacht
     setGlow('glow-ticket', 'active');
     setGlow('glow-barcode', 'active');
@@ -306,9 +345,9 @@ function showIdle() {
       <p style="font-size:20px;opacity:.4;font-weight:900;color:#4488FF;letter-spacing:2px;">P1</p>
       <p class="screen__title" style="color:white;">Welkom bij P1 Parking</p>
       <div class="screen__divider" style="background:#333;"></div>
-      <button class="btn btn--primary" onclick="setZoom(true); insertTicket()">🎫 Ticket invoeren via gleuf</button>
-      <button class="btn btn--primary" style="background:#333;" onclick="setZoom(true); scanBarcode()">▦ Ticket scannen via barcode</button>
-      <button class="btn btn--secondary" style="font-size:10px;border-color:#555;color:#AAA;" onclick="setZoom(true); showKentekenInput()">Ticket kwijt of beschadigd?</button>
+      <button class="btn btn--primary" onclick="insertTicket()">🎫 Ticket invoeren via gleuf</button>
+      <button class="btn btn--primary" style="background:#333;" onclick="scanBarcode()">▦ Ticket scannen via barcode</button>
+      <button class="btn btn--secondary" style="font-size:10px;border-color:#555;color:#AAA;" onclick="showKentekenInput()">Ticket kwijt of beschadigd?</button>
     `,
     });
     setNavBar({ label: 'Welkomscherm' });
@@ -321,23 +360,26 @@ function insertTicket() {
     const cfg = getConfig();
     clearAllGlows();
 
-    // Kaartje vastzit — waarschuwing, niet blokkeren
+    // Kaartmondje geblokkeerd — hard blokkeren. Er zit een kaartje vast,
+    // dus een tweede ticket erin duwen maakt het alleen erger.
     if (cfg.kaartVast) {
-        setGlow('glow-ticket', 'blink');
+        setGlow('glow-ticket', 'error');
+        setGlow('glow-barcode', 'active');
         setKaartLed('#CC1624');
         setScreen({
-            modifier: 'warning',
-            badge: 'Let op',
-            badgeModifier: 'warning',
+            modifier: 'error',
+            badge: 'Buiten gebruik',
+            badgeModifier: 'error',
             html: `
         <span style="font-size:24px;" class="icon--shake">⚠️</span>
-        <p class="screen__title screen__title--warning">Er zit mogelijk een kaartje<br>vast in het mondje</p>
-        <p class="screen__subtitle">Probeer voorzichtig, of gebruik<br>de barcode scanner rechtsonder.</p>
-        <button class="btn btn--secondary" onclick="scanBarcode()">▦ Gebruik barcode scanner</button>
-        <button class="btn btn--secondary" style="opacity:.6;font-size:10px;" onclick="forceInsertTicket()">Toch invoeren via gleuf</button>
+        <p class="screen__title screen__title--error">Kaartgleuf buiten gebruik</p>
+        <p class="screen__subtitle">Er zit een kaartje vast in het mondje.<br>Voer uw ticket hier niet in.</p>
+        <button class="btn btn--primary" onclick="scanBarcode()">▦ Gebruik de barcode scanner</button>
+        <button class="btn btn--secondary" onclick="showKentekenInput()">🔢 Voer kenteken in</button>
+        <button class="btn btn--secondary" style="font-size:10px;opacity:.7;" onclick="showIdle()">✕ Annuleren</button>
       `,
         });
-        setNavBar({ back: true, label: 'Kaartmondje — let op' });
+        setNavBar({ back: true, label: 'Kaartgleuf buiten gebruik' });
         return;
     }
 
@@ -362,6 +404,7 @@ function insertTicket() {
     }
 
     // Ticket OK — kort flash dan door naar betaalkeuze
+    state.ticketInMachine = true;
     setGlow('glow-ticket', 'success');
     setKaartLed('#2E7D32');
     setScreen({
@@ -376,21 +419,8 @@ function insertTicket() {
     setTimeout(() => showBetaalkeuze(), 800);
 }
 
-function forceInsertTicket() {
-    const cfg = getConfig();
-    clearAllGlows();
-    setGlow('glow-ticket', 'blink');
-    if (cfg.ticketFout) { insertTicket(); return; }
-    setScreen({
-        progress: 30,
-        html: `
-      <div class="success-icon" style="width:36px;height:36px;font-size:18px;">✓</div>
-      <p class="screen__title screen__title--success">Ticket gelezen</p>
-      <p class="screen__subtitle" style="color:var(--color-orange);">⚠ Let op: controleer de gleuf na gebruik</p>
-    `,
-    });
-    setTimeout(() => showBetaalkeuze(), 800);
-}
+// forceInsertTicket verwijderd: bij een geblokkeerde gleuf mag er geen
+// omweg zijn om alsnog een ticket in te voeren.
 
 // ─────────────────────────────────────────────
 //  BARCODE SCAN
@@ -399,11 +429,43 @@ function scanBarcode() {
     const cfg = getConfig();
     clearAllGlows();
 
-    if (cfg.barcodeDefect) return; // scanner defect, doet niets
+    if (cfg.barcodeDefect) {
+        setGlow('glow-barcode', 'error');
+        setScreen({
+            modifier: 'error',
+            badge: 'Fout',
+            badgeModifier: 'error',
+            html: `
+        <span style="font-size:24px;" class="icon--shake">▦</span>
+        <p class="screen__title screen__title--error">Barcode kan niet worden gelezen</p>
+        <p class="screen__subtitle">De scanner is buiten gebruik.</p>
+        ${cfg.kaartVast
+                ? ''
+                : '<button class="btn btn--primary" onclick="insertTicket()">🎫 Voer uw ticket in de gleuf in</button>'}
+        <button class="btn btn--secondary" onclick="showKentekenInput()">🔢 Voer kenteken in</button>
+        <button class="btn btn--secondary" style="font-size:10px;" onclick="showIntercom()">📞 Bel de meldkamer</button>
+      `,
+        });
+        setNavBar({ back: true, label: 'Barcode scanner defect' });
+        return;
+    }
 
     if (cfg.ticketFout) {
         setGlow('glow-barcode', 'error');
-        insertTicket(); // toon fout scherm
+        setKaartLed('#CC1624');
+        setScreen({
+            modifier: 'error',
+            badge: 'Fout',
+            badgeModifier: 'error',
+            html: `
+        <span style="font-size:24px;" class="icon--shake">⚠️</span>
+        <p class="screen__title screen__title--error">Ticket kan niet worden gelezen</p>
+        <p class="screen__subtitle">De barcode is beschadigd of verkreukeld.</p>
+        <button class="btn btn--danger" onclick="showKentekenInput()">🔢 Voer kenteken in</button>
+        <button class="btn btn--secondary" onclick="showIntercom()">📞 Bel de meldkamer</button>
+      `,
+        });
+        setNavBar({ back: true, label: 'Ticket niet leesbaar' });
         return;
     }
 
@@ -681,8 +743,109 @@ function renderContant() {
 }
 
 function addCash(amount) {
-    state.cashIn = Math.round((state.cashIn + amount) * 100) / 100;
+    const cfg = getConfig();
+    const nieuw = Math.round((state.cashIn + amount) * 100) / 100;
+
+    // Gepast betalen vereist: er is geen wisselgeld in de automaat.
+    // Te veel inwerpen kan dus niet worden afgerekend — de betaling
+    // wordt afgebroken en het ingeworpen geld gaat terug.
+    if (cfg.gepast && nieuw > state.cashTarget) {
+        state.cashIn = nieuw;
+        betalingAfgebroken(Math.round((nieuw - state.cashTarget) * 100) / 100);
+        return;
+    }
+
+    state.cashIn = nieuw;
     renderContant();
+}
+
+/* Te veel ingeworpen bij gepast betalen: ticket terug, geld terug. */
+function betalingAfgebroken(teveel) {
+    state.step = 'afgebroken';
+    clearAllGlows();
+
+    setGlow('glow-wissel', 'active');   // geld komt terug in de wisselbak
+    if (state.ticketInMachine) {
+        setGlow('glow-ticket', 'active');   // ticket wordt uitgeworpen
+        setKaartLed('#CC1624');
+    }
+
+    const ingeworpen = state.cashIn.toFixed(2).replace('.', ',');
+
+    setScreen({
+        modifier: 'error',
+        badge: 'Afgebroken',
+        badgeModifier: 'error',
+        html: `
+      <span style="font-size:24px;" class="icon--shake">⚠️</span>
+      <p class="screen__title screen__title--error">Betaling afgebroken</p>
+      <p class="screen__subtitle">
+        <strong>Neem uw geld uit de wisselbak.</strong><br>
+        Er is geen wisselgeld — u moet gepast betalen (${getConfig().euroStr}).
+      </p>
+      <p class="screen__subtitle" id="wissel-reminder"
+        style="color:var(--color-green);font-weight:600;cursor:pointer;"
+        onclick="haalGeldTerug()">
+        💰 Neem € ${ingeworpen} terug ↙
+      </p>
+      ${state.ticketInMachine
+            ? `<p class="screen__subtitle" id="ticket-reminder"
+               style="font-weight:600;color:#1A1A1A;cursor:pointer;" onclick="haalTicketTerug()">
+               🎫 Neem uw ticket uit de gleuf links ←
+             </p>`
+            : `<p class="screen__subtitle" style="color:#6B6B6B;">Bewaar uw ticket — u heeft het nog nodig.</p>`}
+    `,
+    });
+    setNavBar({ label: 'Betaling afgebroken — neem ticket en geld terug' });
+
+    state.geldTerug = false;
+    state.ticketTerug = !state.ticketInMachine;
+
+    // Vergeet uw wisselgeld niet
+    if (window._wisselTimer) clearTimeout(window._wisselTimer);
+    window._wisselTimer = setTimeout(() => {
+        if (state.geldTerug) return;
+        const el = document.getElementById('wissel-reminder');
+        if (el) {
+            el.style.cssText = 'font-weight:700;color:#CC1624;background:#FFF5F5;border:1px solid #CC1624;border-radius:6px;padding:6px 10px;cursor:pointer;animation:shake 0.4s ease;';
+            el.textContent = '⚠ Vergeet uw geld niet!';
+        }
+        setGlow('glow-wissel', 'blink');
+    }, 5000);
+}
+
+function haalGeldTerug() {
+    if (state.step !== 'afgebroken') return;
+    state.geldTerug = true;
+    if (window._wisselTimer) clearTimeout(window._wisselTimer);
+    setGlow('glow-wissel', 'success');
+    const el = document.getElementById('wissel-reminder');
+    if (el) { el.style.cssText = 'color:#2E7D32;font-weight:600;'; el.textContent = '✓ Geld teruggenomen'; }
+    checkAfgebrokenKlaar();
+}
+
+function haalTicketTerug() {
+    if (state.step !== 'afgebroken') return;
+    state.ticketTerug = true;
+    setGlow('glow-ticket', 'success');
+    setKaartLed('#2E7D32');
+    const el = document.getElementById('ticket-reminder');
+    if (el) { el.style.cssText = 'color:#2E7D32;font-weight:600;'; el.textContent = '✓ Ticket teruggenomen'; }
+    checkAfgebrokenKlaar();
+}
+
+function checkAfgebrokenKlaar() {
+    if (!(state.geldTerug && state.ticketTerug)) return;
+    setTimeout(() => {
+        setScreen({
+            modifier: 'dark',
+            html: `
+        <p class="screen__title" style="color:white;">Betaling niet voltooid</p>
+        <p class="screen__subtitle">Probeer het opnieuw met gepast geld,<br>of betaal met uw pinpas.</p>
+      `,
+        });
+        setTimeout(() => showIdle(), 2200);
+    }, 700);
 }
 
 function flashBriefDefect() {
@@ -706,10 +869,11 @@ function showKlaar() {
     const wissel = Math.round((state.cashIn - state.cashTarget) * 100) / 100;
     const heeftWissel = wissel > 0 && !cfg.gepast;
 
-    // Ticket uitvoer bak pulseert — bezoeker moet ticket pakken
-    setGlow('glow-ticket',    'active');
-    setGlow('glow-ticket', 'active'); // ticket komt hier uit
-    setKaartLed('#2E7D32');
+    // Kaartmondje pulseert alleen als het ticket er ook daadwerkelijk in zit
+    if (state.ticketInMachine) {
+        setGlow('glow-ticket', 'active');
+        setKaartLed('#2E7D32');
+    }
 
     // Wisselgeld gleuf alleen actief als er wisselgeld is
     if (heeftWissel) {
@@ -725,6 +889,20 @@ function showKlaar() {
        </p>`
         : '';
 
+    // Het ticket komt alleen terug als het er ook in is gegaan. Bij een
+    // barcodescan of de kentekenroute houdt de bezoeker het zelf vast.
+    const ticketTerugNodig = state.ticketInMachine;
+
+    const ticketHtml = ticketTerugNodig
+        ? `<div class="screen__divider"></div>
+       <p class="screen__subtitle" id="ticket-reminder"
+        style="font-weight:600;color:#1A1A1A;cursor:pointer;" onclick="haalTicketOp()">
+        🎫 Pak uw ticket uit de gleuf links ←
+       </p>`
+        : `<div class="screen__divider"></div>
+       <p class="screen__subtitle" style="color:#6B6B6B;">Bewaar uw ticket — u heeft het nodig bij de uitrit.</p>
+       <button class="btn btn--success" onclick="haalTicketOp()">✓ Klaar</button>`;
+
     setScreen({
         modifier: 'success',
         progress: 100,
@@ -736,37 +914,52 @@ function showKlaar() {
       <p class="screen__subtitle">U kunt nu uitrijden.</p>
       ${wisselHtml}
       <button class="btn btn--secondary" style="font-size:10px;" onclick="printKwitantie()">📄 Kwitantie afdrukken</button>
-      <div class="screen__divider"></div>
-      <p class="screen__subtitle" id="ticket-reminder"
-        style="font-weight:600;color:#1A1A1A;cursor:pointer;" onclick="haalTicketOp()">
-        🎫 Pak uw ticket uit de gleuf links ←
-      </p>
+      ${ticketHtml}
     `,
     });
-    setNavBar({ label: '✓ Betaling voltooid — pak uw ticket' });
+    setNavBar({ label: ticketTerugNodig ? '✓ Betaling voltooid — pak uw ticket' : '✓ Betaling voltooid' });
 
     // Na 5 seconden: subtiele reminder als ticket nog niet is gepakt
     if (window._ticketTimer) clearTimeout(window._ticketTimer);
-    window._ticketTimer = setTimeout(() => {
-        const el = document.getElementById('ticket-reminder');
-        if (el) {
-            el.style.cssText = 'font-weight:700;color:#CC1624;background:#FFF5F5;border:1px solid #CC1624;border-radius:6px;padding:6px 10px;cursor:pointer;animation:shake 0.4s ease;';
-            el.textContent = '⚠ Vergeet uw ticket niet!';
-        }
-        setGlow('glow-ticket', 'blink');
-        setGlow('glow-ticket', 'blink');
-        setKaartLed('#CC1624');
-    }, 5000);
+    if (ticketTerugNodig) {
+        window._ticketTimer = setTimeout(() => {
+            const el = document.getElementById('ticket-reminder');
+            if (el) {
+                el.style.cssText = 'font-weight:700;color:#CC1624;background:#FFF5F5;border:1px solid #CC1624;border-radius:6px;padding:6px 10px;cursor:pointer;animation:shake 0.4s ease;';
+                el.textContent = '⚠ Vergeet uw ticket niet!';
+            }
+            setGlow('glow-ticket', 'blink');
+            setKaartLed('#CC1624');
+        }, 5000);
+    }
+
+    // Hetzelfde voor het wisselgeld — uit de survey bleek dat bezoekers
+    // vaak doorlopen zodra het ticket eruit is.
+    if (window._wisselTimer) clearTimeout(window._wisselTimer);
+    if (heeftWissel) {
+        state.wisselGepakt = false;
+        window._wisselTimer = setTimeout(() => {
+            if (state.wisselGepakt) return;
+            const el = document.getElementById('wissel-reminder');
+            if (el) {
+                el.style.cssText = 'font-weight:700;color:#CC1624;background:#FFF5F5;border:1px solid #CC1624;border-radius:6px;padding:6px 10px;cursor:pointer;animation:shake 0.4s ease;';
+                el.textContent = '⚠ Vergeet uw wisselgeld niet!';
+            }
+            setGlow('glow-wissel', 'blink');
+        }, 5000);
+    }
 }
 
 function haalWisselgeldOp() {
     if (state.step !== 'klaar') return;
+    state.wisselGepakt = true;
+    if (window._wisselTimer) clearTimeout(window._wisselTimer);
     setGlow('glow-wissel',    'success');
     setGlow('glow-kwitantie', 'success');
     // Update reminder text
     const el = document.getElementById('wissel-reminder');
     if (el) {
-        el.style.color = '#2E7D32';
+        el.style.cssText = 'color:#2E7D32;font-weight:600;';
         el.textContent = '✓ Wisselgeld gepakt';
     }
 }
@@ -946,25 +1139,8 @@ function showIntercom() {
     setNavBar({ label: 'Intercom actief' });
 }
 
-// ─────────────────────────────────────────────
-//  NAV KNOPPEN
-// ─────────────────────────────────────────────
-function handleNext() {
-    if (state.step === 'betaalkeuze')  showPin();
-    else if (state.step === 'pin')     showPincodeInvoer();
-    else if (state.step === 'pincode') bevestigPin();
-    else if (state.step === 'kt-betaal') showPincodeInvoer();
-}
-
-function handleBack() {
-    if (state.step === 'betaalkeuze')  insertTicket();
-    else if (state.step === 'pin')     showBetaalkeuze();
-    else if (state.step === 'pincode') showPin();
-    else if (state.step === 'contant') showBetaalkeuze();
-    else if (state.step === 'kenteken') showIdle();
-    else if (state.step === 'kt-betaal') showKentekenInput();
-    else showIdle();
-}
+// De nav-knoppen zijn uit de interface verwijderd; handleNext en
+// handleBack zijn daarmee vervallen.
 
 // ─────────────────────────────────────────────
 //  INIT
